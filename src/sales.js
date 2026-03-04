@@ -1,11 +1,12 @@
+```javascript
 import { supabase } from './supabase.js'
 
 /**
  * Register a manual sale and update inventory
- * @param {Object} saleData - { customer, items: [{ productId, quantity }], notes, userId }
+ * @param {Object} saleData - { customer, items: [{ productId, quantity }], notes, userId, currency, exchangeRate, paymentMethod }
  */
 export async function registerSale(saleData) {
-    const { customer, items, notes, userId } = saleData
+    const { customer, items, notes, userId, currency, exchangeRate, paymentMethod } = saleData
 
     try {
         // 1. Calculate total price and prepare order
@@ -20,9 +21,9 @@ export async function registerSale(saleData) {
                 .eq('id', item.productId)
                 .single()
 
-            if (pError || !product) throw new Error(`Producto no encontrado ID: ${item.productId}`)
+            if (pError || !product) throw new Error(`Producto no encontrado ID: ${ item.productId } `)
             if (product.stock < item.quantity) {
-                throw new Error(`Stock insuficiente para ${product.name}. Disponible: ${product.stock}`)
+                throw new Error(`Stock insuficiente para ${ product.name }.Disponible: ${ product.stock } `)
             }
 
             const itemTotal = product.price * item.quantity
@@ -71,8 +72,12 @@ export async function registerSale(saleData) {
             await supabase.from('transactions').insert([{
                 type: 'ingreso',
                 category: 'venta',
-                concept: `Venta de ${item.quantity}x ${item.name}`,
+                concept: `Venta de ${ item.quantity }x ${ item.name } `,
                 amount: item.total,
+                currency: currency || 'USD',
+                exchange_rate: exchangeRate || 1.0,
+                amount_bs: (currency === 'USD' && exchangeRate) ? (item.total * exchangeRate) : (currency === 'BS' ? item.total : null),
+                payment_method: paymentMethod,
                 order_id: order.id,
                 created_by: userId
             }])
@@ -118,7 +123,7 @@ export async function getFinancialSummary() {
 }
 
 export async function registerExpense(expenseData) {
-    const { concept, category, amount, userId } = expenseData
+    const { concept, category, amount, userId, currency, exchangeRate, paymentMethod } = expenseData
     const { data, error } = await supabase
         .from('transactions')
         .insert([{
@@ -126,6 +131,10 @@ export async function registerExpense(expenseData) {
             category,
             concept,
             amount: parseFloat(amount),
+            currency: currency || 'USD',
+            exchange_rate: exchangeRate || 1.0,
+            amount_bs: (currency === 'USD' && exchangeRate) ? (parseFloat(amount) * exchangeRate) : (currency === 'BS' ? parseFloat(amount) : null),
+            payment_method: paymentMethod,
             created_by: userId
         }])
         .select()

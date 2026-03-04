@@ -235,6 +235,30 @@
                     <label for="sale-customer">Nombre del Cliente</label>
                     <input type="text" id="sale-customer" required placeholder="Ej: Maria Perez">
                 </div>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
+                    <div class="input-group">
+                        <label for="sale-currency">Moneda</label>
+                        <select id="sale-currency">
+                            <option value="USD" selected>USD ($)</option>
+                            <option value="BS">BS (Bs.)</option>
+                        </select>
+                    </div>
+                    <div class="input-group">
+                        <label for="sale-rate">Tasa de Cambio</label>
+                        <input type="number" id="sale-rate" step="0.01" placeholder="Ej: 36.50">
+                    </div>
+                    <div class="input-group">
+                        <label for="sale-payment-method">Método de Pago</label>
+                        <select id="sale-payment-method" required>
+                            <option value="Cash">Efectivo</option>
+                            <option value="Zelle">Zelle</option>
+                            <option value="Pago Movil">Pago Móvil</option>
+                            <option value="Transferencia">Transferencia</option>
+                        </select>
+                    </div>
+                </div>
+
                 <div id="sale-items-container">
                     <label>Productos</label>
                     <div class="sale-item-row" style="display: flex; gap: 0.5rem; margin-bottom: 0.5rem;">
@@ -255,8 +279,10 @@
                     <textarea id="sale-notes" rows="2" placeholder="Opcional..."></textarea>
                 </div>
 
-                <div class="modal-footer">
-                    <h3 id="sale-total-display" style="margin-right: auto;">Total: $0.00</h3>
+                <div class="modal-footer" style="flex-direction: column; align-items: flex-end; gap: 0.5rem;">
+                    <h3 id="sale-total-display">Total: $0.00</h3>
+                    <p id="sale-total-bs-display"
+                        style="font-size: 0.9rem; color: var(--text-muted); font-weight: 600;">(Bs. 0.00)</p>
                     <button type="submit" id="save-sale-btn" class="btn">Procesar Venta</button>
                 </div>
                 <div id="sales-error" class="error-msg" style="color: var(--danger); margin-top: 1rem;"></div>
@@ -292,6 +318,16 @@
                 <div class="input-group">
                     <label for="exp-amount">Monto ($)</label>
                     <input type="number" id="exp-amount" step="0.01" required placeholder="0.00">
+                </div>
+                <div class="input-group">
+                    <label for="exp-payment-method">Método de Pago</label>
+                    <select id="exp-payment-method" required>
+                        <option value="Cash">Efectivo</option>
+                        <option value="Zelle">Zelle</option>
+                        <option value="Pago Movil">Pago Móvil</option>
+                        <option value="Transferencia">Transferencia</option>
+                        <option value="Otro">Otro</option>
+                    </select>
                 </div>
                 <div class="modal-footer">
                     <button type="submit" id="save-expense-btn" class="btn">Guardar Gasto</button>
