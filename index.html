@@ -35,7 +35,9 @@
                 <ul>
                     <li><a href="#" class="active" data-target="home">Dashboard</a></li>
                     <li><a href="#" data-target="inventory">Inventario</a></li>
-                    <li><a href="#" data-target="orders">Pedidos</a></li>
+                    <li><a href="#" data-target="orders">Ventas / Pedidos</a></li>
+                    <li><a href="#" data-target="reports" class="admin-only" style="display: none;">Reportes</a></li>
+                    <li><a href="#" data-target="users" class="admin-only" style="display: none;">Usuarios</a></li>
                 </ul>
                 <button id="logout-btn" class="btn btn-outline">Cerrar Sesión</button>
             </nav>
@@ -92,8 +94,8 @@
 
                     <!-- Orders View -->
                     <div id="view-orders" class="view-section" style="display: none;">
-                        <div class="section-header" style="margin-bottom: 2rem;">
-                            <h2>Pedidos</h2>
+                        <div class="view-header">
+                            <h2>Pedidos / Ventas</h2>
                         </div>
                         <div class="table-container">
                             <table class="data-table">
@@ -108,6 +110,38 @@
                                     </tr>
                                 </thead>
                                 <tbody id="orders-tbody"></tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Reports View (Admin Only) -->
+                    <div id="view-reports" class="view-section admin-only" style="display: none;">
+                        <div class="view-header">
+                            <h2>Reportes Financieros</h2>
+                            <button id="btn-export-report" class="btn btn-primary">Exportar PDF</button>
+                        </div>
+                        <div class="kpi-grid">
+                            <div class="kpi-card">
+                                <h3>Ventas Brutas</h3>
+                                <p id="report-total-revenue" class="kpi-value">$0.00</p>
+                            </div>
+                            <div class="kpi-card">
+                                <h3>Utilidad Estimada</h3>
+                                <p id="report-net-profit" class="kpi-value">$0.00</p>
+                            </div>
+                        </div>
+                        <div class="table-container">
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>ID</th>
+                                        <th>Tipo</th>
+                                        <th>Concepto</th>
+                                        <th>Monto</th>
+                                        <th>Fecha</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="reports-tbody"></tbody>
                             </table>
                         </div>
                     </div>
