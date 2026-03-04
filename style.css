@@ -58,11 +58,18 @@ body {
 /* Sidebar - Modern Solid */
 .sidebar {
   width: 260px;
+  min-width: 260px;
+  /* Force stability */
+  height: 100vh;
+  position: sticky;
+  top: 0;
   background: var(--bg-side);
   color: var(--text-on-dark);
   padding: 2rem 1rem;
   display: flex;
   flex-direction: column;
+  transition: none;
+  /* Disable transitions that cause jitter */
 }
 
 .sidebar .logo {
@@ -135,7 +142,8 @@ h1 {
 /* Main Working Area */
 #main-content {
   padding: 2rem;
-  overflow-y: auto;
+  overflow-y: scroll;
+  /* Forces scrollbar gutter to prevent jitter */
   flex: 1;
 }
 
