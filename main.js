@@ -210,7 +210,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const tr = document.createElement('tr');
 
         // Determine image (handle gallery or single url)
-        let mainImg = '/vite.svg';
+        let mainImg = 'https://via.placeholder.com/60?text=DLUX';
         if (p.images && p.images.length > 0) mainImg = p.images[0];
         else if (p.image_url) mainImg = p.image_url;
 
@@ -218,7 +218,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const stockText = p.stock <= 0 ? 'Agotado' : (p.stock <= 5 ? 'Bajo Stock' : 'Disponible');
 
         tr.innerHTML = `
-        <td><img src="${mainImg}" class="product-img-thumb" onerror="this.src='/vite.svg'"></td>
+        <td><img src="${mainImg}" class="product-img-thumb" onerror="this.src='https://via.placeholder.com/60?text=Error'"></td>
         <td>
           <div style="font-weight:700">${p.name}</div>
           <div style="font-size:0.7rem; color:var(--text-muted)">${p.sku || 'SIN SKU'}</div>
