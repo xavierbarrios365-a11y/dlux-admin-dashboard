@@ -357,6 +357,48 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
+  async function loadReportsTable() {
+    const reportsTbody = document.getElementById('reports-tbody');
+    if (!reportsTbody) return;
+
+    const startDate = document.getElementById('report-date-start')?.value;
+    const endDate = document.getElementById('report-date-end')?.value;
+
+    try {
+      reportsTbody.innerHTML = '<tr><td colspan="7" style="text-align: center;">Cargando transacciones...</td></tr>';
+
+      let query = supabase.from('transactions').select('*').order('date', { ascending: false });
+
+      if (startDate) query = query.gte('date', `${startDate}T00:00:00`);
+      if (endDate) query = query.lte('date', `${endDate}T23:59:59`);
+
+      const { data, error } = await query;
+      if (error) throw error;
+
+      reportsTbody.innerHTML = data.length ? '' : '<tr><td colspan="7" style="text-align: center;">No hay transacciones en este periodo.</td></tr>';
+
+      data.forEach(t => {
+        const tr = document.createElement('tr');
+        const typeBadge = t.type === 'ingreso' ? 'badge-success' : 'badge-danger';
+        const formattedDate = new Date(t.date).toLocaleString();
+
+        tr.innerHTML = `
+          <td><small>${formattedDate}</small></td>
+          <td><span class="badge ${typeBadge}">${t.type.toUpperCase()}</span></td>
+          <td><span class="badge badge-outline">${t.category}</span></td>
+          <td><strong>${t.concept}</strong></td>
+          <td style="font-weight:700">$${t.amount.toFixed(2)}</td>
+          <td><span class="badge badge-outline">${t.payment_method || 'N/A'}</span></td>
+          <td><span class="badge ${t.payment_status === 'pending' ? 'badge-warning' : 'badge-success'}">${(t.payment_status || 'completed').toUpperCase()}</span></td>
+        `;
+        reportsTbody.appendChild(tr);
+      });
+    } catch (e) {
+      console.error(e);
+      reportsTbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color:var(--danger)">Error cargando reportes.</td></tr>';
+    }
+  }
+
   // Inventory Filter Listeners
   document.getElementById('inventory-search')?.addEventListener('input', () => {
     // Re-render from memory if possible, or just call load but that's expensive.
@@ -364,6 +406,10 @@ document.addEventListener('DOMContentLoaded', () => {
     loadProductsTable();
   });
   document.getElementById('inventory-category-filter')?.addEventListener('change', loadProductsTable);
+
+  // Reports Filter Listeners
+  document.getElementById('report-date-start')?.addEventListener('change', loadReportsTable);
+  document.getElementById('report-date-end')?.addEventListener('change', loadReportsTable);
 
   // Gallery Preview Logic
   const imageGalleryPreview = document.getElementById('image-gallery-preview');
