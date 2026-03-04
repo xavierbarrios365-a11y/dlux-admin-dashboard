@@ -421,31 +421,69 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  // Load KPIs for Home
-  async function loadKpis() {
+  // Load Data for Dashboard Home
+  async function loadHomeData() {
     try {
+      // 1. Fetch Products for Stock Count
       const products = await fetchProducts();
       const kpiProducts = document.getElementById('kpi-products');
       if (kpiProducts) kpiProducts.textContent = products.length;
 
-      const orders = await fetchOrders();
-      const kpiSales = document.getElementById('kpi-sales');
-      if (kpiSales) kpiSales.textContent = orders.length;
+      // 2. Fetch Financial Summary from Sales Service
+      const summary = await getFinancialSummary();
 
-      const pendingOrders = orders.filter(o => o.status === 'pending');
-      const kpiOrders = document.getElementById('kpi-orders');
-      if (kpiOrders) kpiOrders.textContent = pendingOrders.length;
+      const incomeEl = document.getElementById('kpi-total-income');
+      const expensesEl = document.getElementById('kpi-total-expenses');
+      const profitEl = document.getElementById('kpi-net-profit');
 
-      // Calculate total revenue (only paid/shipped/delivered)
-      const validStatuses = ['paid', 'shipped', 'delivered'];
-      const revenue = orders
-        .filter(o => validStatuses.includes(o.status))
-        .reduce((sum, o) => sum + Number(o.total || 0), 0);
+      if (incomeEl) incomeEl.textContent = '$' + summary.totalRevenue.toFixed(2);
+      if (expensesEl) expensesEl.textContent = '$' + summary.totalExpenses.toFixed(2);
+      if (profitEl) profitEl.textContent = '$' + summary.netProfit.toFixed(2);
 
-      const kpiRevenue = document.getElementById('kpi-revenue');
-      if (kpiRevenue) kpiRevenue.textContent = '$' + revenue.toFixed(2);
     } catch (e) {
-      console.error('Error loading KPIs', e);
+      console.error('Error loading Home Data', e);
+    }
+  }
+
+  // Load Reports / Audit Table
+  async function loadReportsTable() {
+    const reportsTbody = document.getElementById('reports-tbody');
+    if (!reportsTbody) return;
+
+    try {
+      const transactions = await fetchTransactions();
+      reportsTbody.innerHTML = '';
+
+      if (transactions.length === 0) {
+        reportsTbody.innerHTML = '<tr><td colspan="5" style="text-align: center; padding: 2rem;">No hay transacciones registradas.</td></tr>';
+        return;
+      }
+
+      transactions.forEach(t => {
+        const tr = document.createElement('tr');
+        const badgeClass = t.type === 'ingreso' ? 'badge-success' : 'badge-danger';
+        const dateStr = new Date(t.date).toLocaleDateString();
+
+        tr.innerHTML = `
+          <td><small>${t.id.substring(0, 8)}</small></td>
+          <td><span class="badge ${badgeClass}">${t.type}</span></td>
+          <td>${t.concept}</td>
+          <td style="font-weight: 700;">$${t.amount.toFixed(2)}</td>
+          <td>${dateStr}</td>
+        `;
+        reportsTbody.appendChild(tr);
+      });
+
+      // Update Report KPIs as well
+      const summary = await getFinancialSummary();
+      const reportRev = document.getElementById('report-total-revenue');
+      const reportProfit = document.getElementById('report-net-profit');
+      if (reportRev) reportRev.textContent = '$' + summary.totalRevenue.toFixed(2);
+      if (reportProfit) reportProfit.textContent = '$' + summary.netProfit.toFixed(2);
+
+    } catch (error) {
+      reportsTbody.innerHTML = '<tr><td colspan="5" style="text-align: center; padding: 2rem; color: var(--danger);">Error cargando transacciones.</td></tr>';
+      console.error(error);
     }
   }
 
