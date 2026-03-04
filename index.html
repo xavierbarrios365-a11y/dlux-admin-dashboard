@@ -32,13 +32,22 @@
         <div id="dashboard-container" style="display: none;">
             <nav class="sidebar">
                 <div class="logo">D'Lux Admin</div>
-                <ul>
-                    <li><a href="#" class="active" data-target="home">Dashboard</a></li>
-                    <li><a href="#" data-target="inventory">Inventario</a></li>
-                    <li><a href="#" data-target="orders">Ventas / Pedidos</a></li>
-                    <li><a href="#" data-target="reports" class="admin-only" style="display: none;">Reportes</a></li>
-                    <li><a href="#" data-target="users" class="admin-only" style="display: none;">Usuarios</a></li>
-                </ul>
+                <nav class="sidebar-nav">
+                    <ul>
+                        <li><a href="#" class="active" data-target="home"><i class="icon-dashboard"></i> Dashboard</a>
+                        </li>
+                        <li><a href="#" data-target="inventory"><i class="icon-inventory"></i> Inventario</a></li>
+                        <li><a href="#" data-target="orders"><i class="icon-sales"></i> Ventas / Pedidos</a></li>
+                        <li class="admin-only"><a href="#" data-target="credits"><i class="icon-credit"></i> Créditos y
+                                Apartados</a></li>
+                        <li class="admin-only"><a href="#" data-target="reports"><i class="icon-reports"></i> Reportes
+                                Contables</a></li>
+                        <li class="admin-only"><a href="#" data-target="payroll"><i class="icon-payroll"></i> Nómina y
+                                Servicios</a></li>
+                        <li class="admin-only"><a href="#" data-target="users"><i class="icon-users"></i> Usuarios</a>
+                        </li>
+                    </ul>
+                </nav>
                 <button id="logout-btn" class="btn btn-outline">Cerrar Sesión</button>
             </nav>
             <main class="content">
@@ -73,16 +82,23 @@
                     <div id="view-inventory" class="view-section" style="display: none;">
                         <div class="view-header">
                             <div>
-                                <h2>Inventario</h2>
-                                <div class="admin-only" style="display: none; margin-top: 0.5rem;">
-                                    <label class="switch-container"
-                                        style="font-size: 0.75rem; color: var(--text-muted); display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
-                                        <input type="checkbox" id="toggle-inventory-edit"> Habilitar edición para
-                                        Vendedores
-                                    </label>
-                                </div>
+                                <h2>Inventario de Productos</h2>
+                                <p style="font-size: 0.8rem; color: var(--text-muted);">Gestione sus existencias y
+                                    precios.</p>
                             </div>
-                            <button id="btn-new-product" class="btn btn-primary">+ Nuevo Producto</button>
+                            <div class="header-actions">
+                                <div class="search-box">
+                                    <input type="text" id="inventory-search"
+                                        placeholder="Buscar producto (Nombre, ID)...">
+                                </div>
+                                <select id="inventory-category-filter" class="filter-select">
+                                    <option value="all">Todas las Categorías</option>
+                                    <!-- Categorías dinámicas -->
+                                </select>
+                                <button id="btn-new-product" class="btn admin-only">
+                                    <i class="icon-plus"></i> Nuevo Producto
+                                </button>
+                            </div>
                         </div>
                         <div class="table-container">
                             <table class="data-table">
@@ -161,6 +177,60 @@
                                     </tr>
                                 </thead>
                                 <tbody id="reports-tbody"></tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Credits View (Admin Only) -->
+                    <div id="view-credits" class="view-section admin-only" style="display: none;">
+                        <div class="view-header">
+                            <div>
+                                <h2>Créditos y Apartados</h2>
+                                <p style="font-size: 0.8rem; color: var(--text-muted);">Seguimiento de cobros
+                                    pendientes.</p>
+                            </div>
+                        </div>
+                        <div class="table-container">
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>Cliente</th>
+                                        <th>Total</th>
+                                        <th>Restante</th>
+                                        <th>Vencimiento</th>
+                                        <th>Estado</th>
+                                        <th>Acciones</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="credits-tbody"></tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Payroll View (Admin Only) -->
+                    <div id="view-payroll" class="view-section admin-only" style="display: none;">
+                        <div class="view-header">
+                            <div>
+                                <h2>Gestión de Nómina</h2>
+                                <p style="font-size: 0.8rem; color: var(--text-muted);">Registro de pagos a empleados y
+                                    servicios.</p>
+                            </div>
+                            <button id="btn-add-payroll" class="btn">
+                                <i class="icon-plus"></i> Registrar Pago
+                            </button>
+                        </div>
+                        <div class="table-container">
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>Empleado / Concepto</th>
+                                        <th>Monto</th>
+                                        <th>Fecha</th>
+                                        <th>Periodo</th>
+                                        <th>Método</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="payroll-tbody"></tbody>
                             </table>
                         </div>
                     </div>

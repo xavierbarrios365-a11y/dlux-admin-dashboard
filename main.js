@@ -186,7 +186,15 @@ document.addEventListener('DOMContentLoaded', () => {
       if (targetView) targetView.style.display = 'block';
 
       if (pageTitle) {
-        const titles = { home: 'Dashboard', inventory: 'Inventario', orders: 'Ventas / Pedidos', reports: 'Reportes', users: 'Usuarios' };
+        const titles = {
+          home: 'Dashboard',
+          inventory: 'Inventario',
+          orders: 'Ventas / Pedidos',
+          reports: 'Reportes Contables',
+          users: 'Usuarios',
+          credits: 'Créditos y Apartados',
+          payroll: 'Nómina y Servicios'
+        };
         pageTitle.textContent = titles[target] || 'Dashboard';
       }
 
@@ -196,6 +204,8 @@ document.addEventListener('DOMContentLoaded', () => {
       if (target === 'orders') loadOrdersTable();
       if (target === 'reports') loadReportsTable();
       if (target === 'users') loadUsersTable();
+      if (target === 'credits') loadCreditsTable();
+      if (target === 'payroll') loadPayrollTable();
     });
   });
 
@@ -226,6 +236,68 @@ document.addEventListener('DOMContentLoaded', () => {
       console.error(e);
       usersTbody.innerHTML = '<tr><td colspan="4" style="text-align: center; color:var(--danger)">Error cargando usuarios.</td></tr>';
     }
+  }
+
+  async function loadCreditsTable() {
+    const creditsTbody = document.getElementById('credits-tbody');
+    if (!creditsTbody) return;
+    try {
+      creditsTbody.innerHTML = '<tr><td colspan="6" style="text-align: center;">Cargando créditos...</td></tr>';
+      const { data, error } = await supabase.from('credits').select('*').order('due_date', { ascending: true });
+      if (error) throw error;
+      creditsTbody.innerHTML = data.length ? '' : '<tr><td colspan="6" style="text-align: center;">No hay créditos pendientes.</td></tr>';
+      data.forEach(c => {
+        const tr = document.createElement('tr');
+        const statusBadge = c.status === 'overdue' ? 'badge-danger' : (c.status === 'paid' ? 'badge-success' : 'badge-warning');
+        tr.innerHTML = `
+          <td><strong>${c.customer_name}</strong></td>
+          <td>$${c.total_amount.toFixed(2)}</td>
+          <td style="color: var(--danger); font-weight:700;">$${c.remaining_amount.toFixed(2)}</td>
+          <td>${c.due_date || 'N/A'}</td>
+          <td><span class="badge ${statusBadge}">${c.status.toUpperCase()}</span></td>
+          <td><button class="btn btn-outline btn-small dev-only" disabled>Abonar</button></td>
+        `;
+        creditsTbody.appendChild(tr);
+      });
+    } catch (e) {
+      console.error(e);
+    }
+  }
+
+  async function loadPayrollTable() {
+    const payrollTbody = document.getElementById('payroll-tbody');
+    if (!payrollTbody) return;
+    try {
+      payrollTbody.innerHTML = '<tr><td colspan="5" style="text-align: center;">Cargando nómina...</td></tr>';
+      const { data, error } = await supabase.from('payroll').select('*').order('payment_date', { ascending: false });
+      if (error) throw error;
+      payrollTbody.innerHTML = data.length ? '' : '<tr><td colspan="5" style="text-align: center;">No hay registros de nómina.</td></tr>';
+      data.forEach(p => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td><strong>${p.employee_name}</strong></td>
+          <td>$${p.amount.toFixed(2)}</td>
+          <td>${p.payment_date}</td>
+          <td><small>${p.period_start || ''} al ${p.period_end || ''}</small></td>
+          <td><span class="badge badge-outline">${p.payment_method}</span></td>
+        `;
+        payrollTbody.appendChild(tr);
+      });
+    } catch (e) {
+      console.error(e);
+    }
+  }
+
+  // Inventory Search Logic
+  const inventorySearch = document.getElementById('inventory-search');
+  if (inventorySearch) {
+    inventorySearch.addEventListener('input', (e) => {
+      const term = e.target.value.toLowerCase();
+      document.querySelectorAll('#inventory-tbody tr').forEach(row => {
+        const text = row.innerText.toLowerCase();
+        row.style.display = text.includes(term) ? '' : 'none';
+      });
+    });
   }
 
   // Gallery Preview Logic

@@ -34,6 +34,7 @@ CREATE TABLE IF NOT EXISTS public.transactions (
   exchange_rate DECIMAL(12,2) DEFAULT 1.0,
   amount_bs DECIMAL(20,2), -- Calculated amount in Bolívares
   payment_method VARCHAR(50), -- Zelle, Cash, Pago Movil, etc
+  payment_status TEXT DEFAULT 'completed' CHECK (payment_status IN ('completed', 'pending', 'partial')),
   date timestamp with time zone DEFAULT timezone('utc'::text, now()) NOT NULL,
   created_by uuid REFERENCES auth.users,
   order_id uuid REFERENCES public.orders(id) ON DELETE SET NULL
@@ -64,13 +65,54 @@ DROP POLICY IF EXISTS "Vendedores can insert transactions" ON public.transaction
 CREATE POLICY "Vendedores can insert transactions" ON public.transactions
   FOR INSERT WITH CHECK (auth.uid() = created_by);
 
+-- --- Credits Table ---
+CREATE TABLE IF NOT EXISTS public.credits (
+  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+  customer_name TEXT NOT NULL,
+  total_amount DECIMAL(12,2) NOT NULL,
+  remaining_amount DECIMAL(12,2) NOT NULL,
+  due_date DATE,
+  status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'paid', 'overdue')),
+  created_at timestamp with time zone DEFAULT timezone('utc'::text, now()) NOT NULL,
+  created_by uuid REFERENCES auth.users
+);
+
+ALTER TABLE public.credits ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Admins/Vendedores can view credits" ON public.credits;
+CREATE POLICY "Admins/Vendedores can view credits" ON public.credits FOR SELECT USING (true);
+DROP POLICY IF EXISTS "Admins can manage credits" ON public.credits;
+CREATE POLICY "Admins can manage credits" ON public.credits FOR ALL USING (
+    EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role = 'admin')
+);
+
+-- --- Payroll (Nómina) Table ---
+CREATE TABLE IF NOT EXISTS public.payroll (
+  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+  employee_name TEXT NOT NULL,
+  amount DECIMAL(12,2) NOT NULL,
+  payment_date DATE DEFAULT CURRENT_DATE,
+  period_start DATE,
+  period_end DATE,
+  payment_method TEXT,
+  notes TEXT,
+  created_at timestamp with time zone DEFAULT timezone('utc'::text, now()) NOT NULL,
+  created_by uuid REFERENCES auth.users
+);
+
+ALTER TABLE public.payroll ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Admins can manage payroll" ON public.payroll;
+CREATE POLICY "Admins can manage payroll" ON public.payroll FOR ALL USING (
+    EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role = 'admin')
+);
+
 -- --- MIGRATION SECTION ---
 -- Run this part ONLY if you already had the transactions table from a previous version
 ALTER TABLE public.transactions
 ADD COLUMN IF NOT EXISTS currency VARCHAR(10) DEFAULT 'USD',
 ADD COLUMN IF NOT EXISTS exchange_rate DECIMAL(12,2) DEFAULT 1.0,
 ADD COLUMN IF NOT EXISTS amount_bs DECIMAL(20,2),
-ADD COLUMN IF NOT EXISTS payment_method VARCHAR(50);
+ADD COLUMN IF NOT EXISTS payment_method VARCHAR(50),
+ADD COLUMN IF NOT EXISTS payment_status TEXT DEFAULT 'completed';
 
 -- Function to set role on first login (optional, but good for UX)
 -- Note: You'll need to manually set one user as 'admin' in the database.
