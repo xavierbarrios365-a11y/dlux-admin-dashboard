@@ -21,7 +21,35 @@ CREATE POLICY "Users can insert their own profile." ON public.profiles
 
 DROP POLICY IF EXISTS "Users can update own profile." ON public.profiles;
 CREATE POLICY "Users can update own profile." ON public.profiles
-  FOR UPDATE USING (auth.uid() = id);
+  FOR UPDATE USING (auth.uid() = id OR (SELECT role FROM public.profiles WHERE id = auth.uid()) = 'admin');
+
+-- --- Products Table (Detailed) ---
+CREATE TABLE IF NOT EXISTS public.products (
+  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+  name TEXT NOT NULL,
+  sku TEXT UNIQUE,
+  description TEXT,
+  price DECIMAL(12,2) NOT NULL,
+  cost_price DECIMAL(12,2) DEFAULT 0,
+  stock INTEGER DEFAULT 0,
+  brand TEXT,
+  color TEXT,
+  size TEXT,
+  gender TEXT DEFAULT 'Unisex' CHECK (gender IN ('Woman', 'Men', 'Unisex')),
+  category TEXT,
+  image_url TEXT,
+  images TEXT[],
+  status TEXT DEFAULT 'active',
+  created_at timestamp with time zone DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+ALTER TABLE public.products ENABLE ROW LEVEL SECURITY;
+DROP POLICY IF EXISTS "Public can view products" ON public.products;
+CREATE POLICY "Public can view products" ON public.products FOR SELECT USING (true);
+DROP POLICY IF EXISTS "Admins can manage products" ON public.products;
+CREATE POLICY "Admins can manage products" ON public.products FOR ALL USING (
+    EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role = 'admin')
+);
 
 -- Create a table for financial transactions (Income/Expenses)
 CREATE TABLE IF NOT EXISTS public.transactions (
@@ -73,6 +101,7 @@ CREATE TABLE IF NOT EXISTS public.credits (
   remaining_amount DECIMAL(12,2) NOT NULL,
   due_date DATE,
   status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'paid', 'overdue')),
+  order_id uuid REFERENCES public.orders(id) ON DELETE SET NULL,
   created_at timestamp with time zone DEFAULT timezone('utc'::text, now()) NOT NULL,
   created_by uuid REFERENCES auth.users
 );
@@ -112,7 +141,45 @@ ADD COLUMN IF NOT EXISTS currency VARCHAR(10) DEFAULT 'USD',
 ADD COLUMN IF NOT EXISTS exchange_rate DECIMAL(12,2) DEFAULT 1.0,
 ADD COLUMN IF NOT EXISTS amount_bs DECIMAL(20,2),
 ADD COLUMN IF NOT EXISTS payment_method VARCHAR(50),
-ADD COLUMN IF NOT EXISTS payment_status TEXT DEFAULT 'completed';
+ADD COLUMN IF NOT EXISTS payment_status TEXT DEFAULT 'completed',
+ADD COLUMN IF NOT EXISTS order_id uuid REFERENCES public.orders(id) ON DELETE SET NULL;
+
+ALTER TABLE public.credits
+ADD COLUMN IF NOT EXISTS order_id uuid REFERENCES public.orders(id) ON DELETE SET NULL;
+
+-- --- Migration for Detailed Products ---
+ALTER TABLE public.products
+ADD COLUMN IF NOT EXISTS gender TEXT DEFAULT 'Unisex' CHECK (gender IN ('Woman', 'Men', 'Unisex'));
 
 -- Function to set role on first login (optional, but good for UX)
 -- Note: You'll need to manually set one user as 'admin' in the database.
+
+-- --- Financial RPCs ---
+CREATE OR REPLACE FUNCTION get_total_income()
+RETURNS DECIMAL AS $$
+BEGIN
+  RETURN (SELECT COALESCE(SUM(amount), 0) FROM public.transactions WHERE type = 'ingreso');
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+CREATE OR REPLACE FUNCTION get_total_expenses()
+RETURNS DECIMAL AS $$
+BEGIN
+  RETURN (SELECT COALESCE(SUM(amount), 0) FROM public.transactions WHERE type = 'egreso');
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- --- Profile Auto-Creation ---
+CREATE OR REPLACE FUNCTION public.handle_new_user()
+RETURNS trigger AS $$
+BEGIN
+  INSERT INTO public.profiles (id, email, role)
+  VALUES (new.id, new.email, 'admin'); -- Default to admin for the first users/owner
+  RETURN new;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
+CREATE TRIGGER on_auth_user_created
+  AFTER INSERT ON auth.users
+  FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();

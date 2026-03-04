@@ -209,10 +209,10 @@ export async function registerPayment(creditId, amount, paymentMethod, userId) {
 
 /**
  * Registra un pago de nómina o servicio
- * @param {Object} payrollData - { employeeName, amount, method, periodStart, periodEnd, notes, userId }
+ * @param {Object} payrollData - { employeeName, category, amount, method, periodStart, periodEnd, notes, userId }
  */
 export async function registerPayroll(payrollData) {
-    const { employeeName, amount, method, periodStart, periodEnd, notes, userId } = payrollData;
+    const { employeeName, category, amount, method, periodStart, periodEnd, notes, userId } = payrollData;
 
     try {
         // 1. Crear registro en tabla payroll
@@ -220,6 +220,7 @@ export async function registerPayroll(payrollData) {
             .from('payroll')
             .insert([{
                 employee_name: employeeName,
+                category: category || 'Personal',
                 amount: parseFloat(amount),
                 payment_method: method,
                 period_start: periodStart,
@@ -235,8 +236,8 @@ export async function registerPayroll(payrollData) {
         // 2. Crear transacción de egreso
         await supabase.from('transactions').insert([{
             type: 'egreso',
-            category: 'Personal',
-            concept: `Pago de Nómina: ${employeeName}`,
+            category: category || 'Personal',
+            concept: `${category || 'Pago'}: ${employeeName}`,
             amount: parseFloat(amount),
             payment_method: method,
             created_by: userId

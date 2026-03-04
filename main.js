@@ -41,6 +41,9 @@ document.addEventListener('DOMContentLoaded', () => {
   const closePayrollModalBtn = document.getElementById('close-payroll-modal')
   const payrollForm = document.getElementById('payroll-form')
   const payrollError = document.getElementById('payroll-error')
+  const btnAddItem = document.getElementById('btn-add-item')
+  const salesItemsContainer = document.getElementById('sale-items-container')
+  const salesError = document.getElementById('sales-error')
 
   // Abono Modal
   const abonoModal = document.getElementById('abono-modal')
@@ -58,6 +61,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (session) {
       const profile = await getUserProfile(session.user.id)
       currentUserRole = profile?.role || 'vendedor'
+      allProducts = await fetchProducts() // Cargar cache inicial
       showDashboard(session.user)
       applyPermissions(currentUserRole)
       loadHomeData()
@@ -167,6 +171,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (target === 'reports') loadReportsTable()
       if (target === 'credits') loadCreditsTable()
       if (target === 'payroll') loadPayrollTable()
+      if (target === 'users') loadUsersTable()
     })
   })
 
@@ -216,20 +221,27 @@ document.addEventListener('DOMContentLoaded', () => {
     productsTbody.innerHTML = ''
     filtered.forEach(p => {
       const tr = document.createElement('tr')
-      let mainImg = 'https://via.placeholder.com/60?text=DLUX'
+      let mainImg = 'https://placehold.co/60x60?text=DLUX'
       if (p.images && p.images.length > 0) mainImg = p.images[0]
       else if (p.image_url) mainImg = p.image_url
 
       const stockClass = p.stock <= 0 ? 'badge-danger' : (p.stock <= 5 ? 'badge-warning' : 'badge-success')
       const stockText = p.stock <= 0 ? 'Agotado' : (p.stock <= 5 ? 'Bajo Stock' : 'Disponible')
 
+      const utility = (p.price - (p.cost_price || 0)).toFixed(2)
+
       tr.innerHTML = `
-        <td><img src="${mainImg}" class="product-img-thumb" onerror="this.src='https://via.placeholder.com/60?text=Error'"></td>
+        <td><img src="${mainImg}" class="product-img-thumb" onerror="this.src='https://placehold.co/60x60?text=Error'"></td>
         <td>
           <div style="font-weight:700">${p.name}</div>
-          <div style="font-size:0.7rem; color:var(--text-muted)">${p.sku || 'SIN SKU'}</div>
+          <div style="font-size:0.7rem; color:var(--text-muted)">SKU: ${p.sku || 'N/A'} | ${p.brand || 'Marca n/a'}</div>
+          <div style="font-size:0.7rem; color:var(--text-muted)">${p.color || ''} ${p.size ? '| Talla: ' + p.size : ''}</div>
         </td>
-        <td style="font-weight:600">$${p.price.toFixed(2)}</td>
+        <td>
+          <div style="font-weight:600">$${p.price.toFixed(2)}</div>
+          <div style="font-size:0.7rem; color:var(--success)">Utilidad: $${utility}</div>
+          <div style="font-size:0.6rem; color:var(--text-muted)">Costo: $${(p.cost_price || 0).toFixed(2)}</div>
+        </td>
         <td>${p.stock}</td>
         <td><span class="badge ${stockClass}">${stockText}</span></td>
         <td>
@@ -252,6 +264,143 @@ document.addEventListener('DOMContentLoaded', () => {
   // --- Filtros de Inventario ---
   document.getElementById('inventory-search')?.addEventListener('input', () => renderProducts(allProducts))
   document.getElementById('inventory-category-filter')?.addEventListener('change', () => renderProducts(allProducts))
+
+  // --- Lógica de Pedidos ---
+  async function loadOrdersTable() {
+    if (!ordersTbody) return
+    ordersTbody.innerHTML = '<tr><td colspan="6" style="text-align: center;">Cargando pedidos...</td></tr>'
+    try {
+      const orders = await fetchOrders()
+      ordersTbody.innerHTML = orders.length ? '' : '<tr><td colspan="6" style="text-align: center;">No hay pedidos registrados.</td></tr>'
+      orders.forEach(o => {
+        const tr = document.createElement('tr')
+        tr.innerHTML = `
+          <td><small>${new Date(o.created_at).toLocaleString()}</small></td>
+          <td>${o.customer_name}</td>
+          <td>${o.items?.length || 0} items</td>
+          <td>$${o.total_amount.toFixed(2)}</td>
+          <td><span class="badge ${o.status === 'paid' ? 'badge-success' : 'badge-warning'}">${o.status.toUpperCase()}</span></td>
+          <td>
+            <button class="btn btn-outline btn-small view-order" data-id="${o.id}">Ver</button>
+            <button class="btn btn-outline btn-danger btn-small delete-order" data-id="${o.id}">Eliminar</button>
+          </td>
+        `
+        ordersTbody.appendChild(tr)
+      })
+
+      document.querySelectorAll('.delete-order').forEach(btn => {
+        btn.addEventListener('click', async (e) => {
+          if (confirm('¿Eliminar este pedido?')) {
+            const id = e.target.getAttribute('data-id')
+            await deleteOrder(id)
+            loadOrdersTable()
+          }
+        })
+      })
+    } catch (e) {
+      console.error(e)
+    }
+  }
+
+  // --- Lógica del Modal de Ventas ---
+  if (btnNewOrder) btnNewOrder.addEventListener('click', () => {
+    salesForm.reset()
+    if (salesItemsContainer) {
+      salesItemsContainer.innerHTML = '<label>Productos</label>' // Reset
+      addSalesItemRow() // Add first row
+    }
+    salesModal.style.display = 'flex'
+  })
+
+  if (closeSalesModalBtn) closeSalesModalBtn.addEventListener('click', () => salesModal.style.display = 'none')
+
+  if (btnAddItem) btnAddItem.addEventListener('click', addSalesItemRow)
+
+  function addSalesItemRow() {
+    const row = document.createElement('div')
+    row.className = 'sale-item-row'
+    row.style.display = 'flex'
+    row.style.gap = '0.5rem'
+    row.style.marginBottom = '0.5rem'
+
+    let options = '<option value="">Seleccionar producto...</option>'
+    allProducts.forEach(p => {
+      options += `<option value="${p.id}" data-price="${p.price}">${p.name} ($${p.price})</option>`
+    })
+
+    row.innerHTML = `
+      <select class="sale-product-select" style="flex: 2;" required>${options}</select>
+      <input type="number" class="sale-quantity" placeholder="Cant" min="1" value="1" style="flex: 1;" required>
+      <button type="button" class="btn btn-outline btn-danger btn-small remove-item" style="width: auto;">&times;</button>
+    `
+    salesItemsContainer.appendChild(row)
+
+    row.querySelector('.remove-item').addEventListener('click', () => row.remove())
+    row.querySelector('.sale-product-select').addEventListener('change', updateSalesTotal)
+    row.querySelector('.sale-quantity').addEventListener('input', updateSalesTotal)
+  }
+
+  function updateSalesTotal() {
+    let total = 0
+    document.querySelectorAll('.sale-item-row').forEach(row => {
+      const select = row.querySelector('.sale-product-select')
+      const qty = row.querySelector('.sale-quantity').value
+      const price = select.options[select.selectedIndex]?.getAttribute('data-price') || 0
+      total += price * qty
+    })
+    document.getElementById('sale-total-display').textContent = `Total: $${total.toFixed(2)}`
+    const rate = document.getElementById('sale-rate').value || 36
+    document.getElementById('sale-total-bs-display').textContent = `(Bs. ${(total * rate).toFixed(2)})`
+  }
+
+  if (salesForm) {
+    salesForm.addEventListener('submit', async (e) => {
+      e.preventDefault()
+      const btn = e.target.querySelector('button[type="submit"]')
+      btn.disabled = true
+      salesError.textContent = ''
+
+      try {
+        const items = []
+        document.querySelectorAll('.sale-item-row').forEach(row => {
+          items.push({
+            productId: row.querySelector('.sale-product-select').value,
+            quantity: parseInt(row.querySelector('.sale-quantity').value)
+          })
+        })
+
+        const { data: { user } } = await supabase.auth.getUser()
+        const saleData = {
+          customer: document.getElementById('sale-customer').value,
+          items,
+          notes: document.getElementById('sale-notes').value,
+          userId: user.id,
+          currency: document.getElementById('sale-currency').value,
+          exchangeRate: parseFloat(document.getElementById('sale-rate').value),
+          paymentMethod: document.getElementById('sale-payment-method').value,
+          paymentStatus: document.getElementById('sale-status').value,
+          dueDate: document.getElementById('sale-due-date').value
+        }
+
+        const res = await registerSale(saleData)
+        if (res.success) {
+          salesModal.style.display = 'none'
+          loadOrdersTable()
+          loadHomeData()
+        } else {
+          salesError.textContent = res.error
+        }
+      } catch (err) {
+        salesError.textContent = 'Error al procesar la venta'
+      } finally {
+        btn.disabled = false
+      }
+    })
+  }
+
+  document.getElementById('sale-status')?.addEventListener('change', (e) => {
+    document.getElementById('due-date-container').style.display = e.target.value === 'completed' ? 'none' : 'block'
+  })
 
   // --- Lógica de Créditos ---
   async function loadCreditsTable() {
@@ -332,10 +481,10 @@ document.addEventListener('DOMContentLoaded', () => {
         const tr = document.createElement('tr')
         tr.innerHTML = `
           <td><strong>${p.employee_name}</strong></td>
-          <td>$${p.amount.toFixed(2)}</td>
-          <td>${p.payment_date}</td>
-          <td><small>${p.period_start || ''} al ${p.period_end || ''}</small></td>
-          <td><span class="badge badge-outline">${p.payment_method}</span></td>
+          <td><span class="badge" style="background:#edf2f7; color:#4a5568">${p.category || 'Nómina'}</span></td>
+          <td style="color:var(--danger); font-weight:600">-$${p.amount.toFixed(2)}</td>
+          <td>${new Date(p.payment_date).toLocaleDateString()}</td>
+          <td>${p.payment_method}</td>
         `
         payrollTbody.appendChild(tr)
       })
@@ -483,9 +632,9 @@ document.addEventListener('DOMContentLoaded', () => {
   // --- Dashboard Home ---
   async function loadHomeData() {
     try {
-      const products = await fetchProducts()
+      allProducts = await fetchProducts()
       const kpiProducts = document.getElementById('kpi-products')
-      if (kpiProducts) kpiProducts.textContent = products.length
+      if (kpiProducts) kpiProducts.textContent = allProducts.length
       const summary = await getFinancialSummary()
       const incomeEl = document.getElementById('kpi-total-income')
       const expensesEl = document.getElementById('kpi-total-expenses')
@@ -501,10 +650,15 @@ document.addEventListener('DOMContentLoaded', () => {
   // --- Modales (Apertura/Cierre) ---
   function openEditModal(p) {
     if (productForm) productForm.reset()
-    document.getElementById('prod-id').value = p.id
-    document.getElementById('prod-name').value = p.name
-    document.getElementById('prod-price').value = p.price
-    document.getElementById('prod-stock').value = p.stock
+    document.getElementById('prod-id').value = p.id || ''
+    document.getElementById('prod-name').value = p.name || ''
+    document.getElementById('prod-sku').value = p.sku || ''
+    document.getElementById('prod-price').value = p.price || 0
+    document.getElementById('prod-cost').value = p.cost_price || 0
+    document.getElementById('prod-stock').value = p.stock || 0
+    document.getElementById('prod-brand').value = p.brand || ''
+    document.getElementById('prod-color').value = p.color || ''
+    document.getElementById('prod-size').value = p.size || ''
     document.getElementById('prod-desc').value = p.description || ''
     document.getElementById('prod-status').value = p.status || 'active'
     const modalTitle = document.getElementById('modal-title')
@@ -534,6 +688,70 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('image-gallery-preview').innerHTML = ''
     productModal.style.display = 'flex'
   })
+
+  // --- Lógica de Usuarios ---
+  async function loadUsersTable() {
+    const viewUsers = document.getElementById('view-users')
+    if (!viewUsers) return
+
+    viewUsers.innerHTML = `
+      <div class="view-header">
+        <h2>Gestión de Usuarios / Perfiles</h2>
+      </div>
+      <div class="table-container">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>ID / Email</th>
+              <th>Nombre Completo</th>
+              <th>Rol</th>
+              <th>Acciones</th>
+            </tr>
+          </thead>
+          <tbody id="users-tbody">
+            <tr><td colspan="4" style="text-align:center">Cargando perfiles...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    `
+
+    try {
+      const { data: profiles, error } = await supabase.from('profiles').select('*')
+      const tbody = document.getElementById('users-tbody')
+      if (error) throw error
+
+      tbody.innerHTML = profiles.length ? '' : '<tr><td colspan="4" style="text-align:center">No hay otros perfiles.</td></tr>'
+
+      profiles.forEach(u => {
+        const tr = document.createElement('tr')
+        tr.innerHTML = `
+          <td><small>${u.email}</small></td>
+          <td>${u.full_name || 'Sin nombre'}</td>
+          <td><span class="badge ${u.role === 'admin' ? 'badge-success' : 'badge-warning'}">${u.role.toUpperCase()}</span></td>
+          <td>
+            <button class="btn btn-outline btn-small change-role" data-id="${u.id}" data-role="${u.role}">
+              Cambiar a ${u.role === 'admin' ? 'Vendedor' : 'Admin'}
+            </button>
+          </td>
+        `
+        tbody.appendChild(tr)
+      })
+
+      document.querySelectorAll('.change-role').forEach(btn => {
+        btn.addEventListener('click', async (e) => {
+          const id = e.target.getAttribute('data-id')
+          const currentRole = e.target.getAttribute('data-role')
+          const newRole = currentRole === 'admin' ? 'vendedor' : 'admin'
+          if (confirm(`¿Cambiar rol a ${newRole}?`)) {
+            await supabase.from('profiles').update({ role: newRole }).eq('id', id)
+            loadUsersTable()
+          }
+        })
+      })
+    } catch (e) {
+      console.error(e)
+    }
+  }
 
   // Carga Inicial
   checkSession()
