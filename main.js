@@ -2,6 +2,7 @@ import './style.css'
 import { supabase, getUserProfile } from './src/supabase.js'
 import { fetchProducts, createProduct, updateProduct, deleteProduct, uploadImageToCloudinary } from './src/inventory.js'
 import { fetchOrders, updateOrderStatus, deleteOrder } from './src/orders.js'
+import { registerSale, fetchTransactions, getFinancialSummary } from './src/sales.js'
 
 // Initialize on DOM Ready to avoid null errors
 document.addEventListener('DOMContentLoaded', () => {
@@ -30,6 +31,16 @@ document.addEventListener('DOMContentLoaded', () => {
   const saveProductBtn = document.getElementById('save-product-btn')
   const productsTbody = document.getElementById('products-tbody')
   const ordersTbody = document.getElementById('orders-tbody')
+
+  // Sales Modal Elements
+  const salesModal = document.getElementById('sales-modal')
+  const btnNewOrder = document.getElementById('btn-new-order')
+  const closeSalesModalBtn = document.getElementById('close-sales-modal')
+  const salesForm = document.getElementById('sales-form')
+  const saleItemsContainer = document.getElementById('sale-items-container')
+  const btnAddItem = document.getElementById('btn-add-item')
+  const saleTotalDisplay = document.getElementById('sale-total-display')
+  const salesError = document.getElementById('sales-error')
 
   let currentUserRole = 'vendedor';
   let inventoryEditEnabled = false;
