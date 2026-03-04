@@ -260,9 +260,19 @@
                             <i class="icon-plus"></i> Nuevo Usuario
                         </button>
                         <div class="table-container">
-                            <p style="padding: 2rem; text-align: center; color: var(--text-muted);">
-                                Función de gestión de usuarios restringida al Super Admin.
-                            </p>
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>Email</th>
+                                        <th>Nombre Completo</th>
+                                        <th>Rol</th>
+                                        <th>Acciones</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="users-tbody">
+                                    <!-- Usuarios dinámicos -->
+                                </tbody>
+                            </table>
                         </div>
                     </div>
                 </div>

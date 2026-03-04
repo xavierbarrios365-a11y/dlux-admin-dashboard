@@ -203,11 +203,13 @@ document.addEventListener('DOMContentLoaded', () => {
   function renderProducts(products) {
     const searchTerm = document.getElementById('inventory-search')?.value.toLowerCase() || ''
     const categoryFilter = document.getElementById('inventory-category-filter')?.value || 'all'
+    const genderFilter = document.getElementById('inventory-gender-filter')?.value || 'all'
 
     const filtered = products.filter(p => {
       const matchesSearch = p.name.toLowerCase().includes(searchTerm) || (p.sku && p.sku.toLowerCase().includes(searchTerm))
       const matchesCategory = categoryFilter === 'all' || p.category === categoryFilter
-      return matchesSearch && matchesCategory
+      const matchesGender = genderFilter === 'all' || p.gender === genderFilter
+      return matchesSearch && matchesCategory && matchesGender
     })
 
     const kpiProducts = document.getElementById('kpi-products')
@@ -264,6 +266,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // --- Filtros de Inventario ---
   document.getElementById('inventory-search')?.addEventListener('input', () => renderProducts(allProducts))
   document.getElementById('inventory-category-filter')?.addEventListener('change', () => renderProducts(allProducts))
+  document.getElementById('inventory-gender-filter')?.addEventListener('change', () => renderProducts(allProducts))
 
   // --- Lógica de Pedidos ---
   async function loadOrdersTable() {
@@ -554,6 +557,58 @@ document.addEventListener('DOMContentLoaded', () => {
     })
   }
 
+
+  if (productForm) {
+    productForm.addEventListener('submit', async (e) => {
+      e.preventDefault()
+      const btn = document.getElementById('save-product-btn')
+      btn.disabled = true
+      productError.textContent = ''
+
+      try {
+        const id = document.getElementById('prod-id').value
+        const productData = {
+          name: document.getElementById('prod-name').value,
+          sku: document.getElementById('prod-sku').value,
+          price: parseFloat(document.getElementById('prod-price').value),
+          cost_price: parseFloat(document.getElementById('prod-cost').value),
+          stock: parseInt(document.getElementById('prod-stock').value),
+          brand: document.getElementById('prod-brand').value,
+          color: document.getElementById('prod-color').value,
+          size: document.getElementById('prod-size').value,
+          gender: document.getElementById('prod-gender').value,
+          category: document.getElementById('prod-category').value,
+          description: document.getElementById('prod-desc').value,
+          status: document.getElementById('prod-status').value
+        }
+
+        const imageFiles = document.getElementById('prod-image').files
+        if (imageFiles.length > 0) {
+          const uploadedUrls = []
+          for (const file of imageFiles) {
+            const url = await uploadImageToCloudinary(file)
+            uploadedUrls.push(url)
+          }
+          productData.images = uploadedUrls
+        }
+
+        if (id) {
+          await updateProduct(id, productData)
+        } else {
+          await createProduct(productData)
+        }
+
+        productModal.style.display = 'none'
+        loadProductsTable()
+        loadHomeData()
+      } catch (err) {
+        productError.textContent = err.message
+      } finally {
+        btn.disabled = false
+      }
+    })
+  }
+
   // --- Lógica de Reportes ---
   async function loadReportsTable() {
     const reportsTbody = document.getElementById('reports-tbody')
@@ -660,6 +715,8 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('prod-color').value = p.color || ''
     document.getElementById('prod-size').value = p.size || ''
     document.getElementById('prod-desc').value = p.description || ''
+    document.getElementById('prod-gender').value = p.gender || 'Woman'
+    document.getElementById('prod-category').value = p.category || ''
     document.getElementById('prod-status').value = p.status || 'active'
     const modalTitle = document.getElementById('modal-title')
     if (modalTitle) modalTitle.textContent = 'Editar Producto'
@@ -691,29 +748,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // --- Lógica de Usuarios ---
   async function loadUsersTable() {
-    const viewUsers = document.getElementById('view-users')
-    if (!viewUsers) return
+    const tbody = document.getElementById('users-tbody')
+    if (!tbody) return
 
-    viewUsers.innerHTML = `
-      <div class="view-header">
-        <h2>Gestión de Usuarios / Perfiles</h2>
-      </div>
-      <div class="table-container">
-        <table class="data-table">
-          <thead>
-            <tr>
-              <th>ID / Email</th>
-              <th>Nombre Completo</th>
-              <th>Rol</th>
-              <th>Acciones</th>
-            </tr>
-          </thead>
-          <tbody id="users-tbody">
-            <tr><td colspan="4" style="text-align:center">Cargando perfiles...</td></tr>
-          </tbody>
-        </table>
-      </div>
-    `
+    tbody.innerHTML = '<tr><td colspan="4" style="text-align:center">Cargando perfiles...</td></tr>'
 
     try {
       const { data: profiles, error } = await supabase.from('profiles').select('*')
@@ -736,6 +774,64 @@ document.addEventListener('DOMContentLoaded', () => {
         `
         tbody.appendChild(tr)
       })
+
+      // Eventos para el modal de usuario
+      const btnNewUser = document.getElementById('btn-new-user')
+      const userModal = document.getElementById('user-modal')
+      const closeUserModal = document.getElementById('close-user-modal')
+      const userForm = document.getElementById('user-form')
+      const userError = document.getElementById('user-error')
+
+      if (btnNewUser) btnNewUser.onclick = () => {
+        userForm.reset()
+        userModal.style.display = 'flex'
+      }
+      if (closeUserModal) closeUserModal.onclick = () => userModal.style.display = 'none'
+
+      if (userForm) {
+        userForm.onsubmit = async (e) => {
+          e.preventDefault()
+          const email = document.getElementById('user-email').value
+          const password = document.getElementById('user-password').value
+          const fullName = document.getElementById('user-full-name').value
+          const role = document.getElementById('user-role').value
+          const btn = document.getElementById('save-user-btn')
+
+          btn.disabled = true
+          userError.textContent = ''
+
+          try {
+            // 1. Crear usuario en Auth
+            const { data: authData, error: authError } = await supabase.auth.signUp({
+              email,
+              password,
+              options: {
+                data: { full_name: fullName }
+
+              }
+            })
+            if (authError) throw authError
+
+            // 2. Actualizar perfil (el trigger ya lo crea como admin por defecto en este proyecto, 
+            // pero vamos a forzar el rol y nombre que eligió el admin)
+            if (authData.user) {
+              const { error: profError } = await supabase
+                .from('profiles')
+                .update({ role, full_name: fullName })
+                .eq('id', authData.user.id)
+              if (profError) throw profError
+            }
+
+            userModal.style.display = 'none'
+            loadUsersTable()
+            alert('Usuario creado con éxito. El usuario debe confirmar su correo si aplica.')
+          } catch (err) {
+            userError.textContent = err.message
+          } finally {
+            btn.disabled = false
+          }
+        }
+      }
 
       document.querySelectorAll('.change-role').forEach(btn => {
         btn.addEventListener('click', async (e) => {
