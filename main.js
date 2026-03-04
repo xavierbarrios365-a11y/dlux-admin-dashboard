@@ -49,6 +49,13 @@ document.addEventListener('DOMContentLoaded', () => {
   const expenseForm = document.getElementById('expense-form')
   const expenseError = document.getElementById('expense-error')
 
+  // Payroll Modal Elements
+  const payrollModal = document.getElementById('payroll-modal')
+  const btnAddPayroll = document.getElementById('btn-add-payroll')
+  const closePayrollModalBtn = document.getElementById('close-payroll-modal')
+  const payrollForm = document.getElementById('payroll-form')
+  const payrollError = document.getElementById('payroll-error')
+
   let currentUserRole = 'vendedor';
   let inventoryEditEnabled = false;
 
@@ -926,7 +933,83 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // --- Initialize ---
-  checkSession();
-  loadHomeData();
+});
+  }
+
+// --- Payroll Flow ---
+if (btnAddPayroll) {
+  btnAddPayroll.addEventListener('click', () => {
+    payrollModal.style.display = 'flex';
+  });
+}
+
+if (closePayrollModalBtn) {
+  closePayrollModalBtn.addEventListener('click', () => {
+    payrollModal.style.display = 'none';
+    if (payrollForm) payrollForm.reset();
+  });
+}
+
+if (payrollForm) {
+  payrollForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    payrollError.innerText = '';
+    const saveBtn = document.getElementById('save-payroll-btn');
+    if (saveBtn) {
+      saveBtn.disabled = true;
+      saveBtn.innerText = 'Guardando...';
+    }
+
+    const { data: { user } } = await supabase.auth.getUser();
+    const payrollData = {
+      employeeName: document.getElementById('pay-employee').value,
+      amount: document.getElementById('pay-amount').value,
+      periodStart: document.getElementById('pay-start').value,
+      periodEnd: document.getElementById('pay-end').value,
+      paymentMethod: document.getElementById('pay-method').value,
+      notes: document.getElementById('pay-notes').value,
+      userId: user.id
+    };
+
+    try {
+      const { error } = await supabase.from('payroll').insert([{
+        employee_name: payrollData.employeeName,
+        amount: parseFloat(payrollData.amount),
+        period_start: payrollData.periodStart || null,
+        period_end: payrollData.periodEnd || null,
+        payment_method: payrollData.paymentMethod,
+        notes: payrollData.notes,
+        created_by: payrollData.userId
+      }]);
+
+      if (error) throw error;
+
+      // Also record as a transaction egreso
+      await supabase.from('transactions').insert([{
+        type: 'egreso',
+        category: 'nomina',
+        concept: `Pago a ${payrollData.employeeName}`,
+        amount: parseFloat(payrollData.amount),
+        payment_method: payrollData.paymentMethod,
+        created_by: payrollData.userId
+      }]);
+
+      payrollModal.style.display = 'none';
+      payrollForm.reset();
+      loadPayrollTable();
+      loadHomeData();
+    } catch (err) {
+      payrollError.innerText = err.message;
+    } finally {
+      if (saveBtn) {
+        saveBtn.disabled = false;
+        saveBtn.innerText = 'Confirmar Pago';
+      }
+    }
+  });
+}
+
+// --- Initialize ---
+checkSession();
+loadHomeData();
 });

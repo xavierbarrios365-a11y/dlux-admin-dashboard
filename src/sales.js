@@ -1,4 +1,3 @@
-```javascript
 import { supabase } from './supabase.js'
 
 /**
@@ -6,7 +5,7 @@ import { supabase } from './supabase.js'
  * @param {Object} saleData - { customer, items: [{ productId, quantity }], notes, userId, currency, exchangeRate, paymentMethod, paymentStatus, dueDate }
  */
 export async function registerSale(saleData) {
-  const { customer, items, notes, userId, currency, exchangeRate, paymentMethod, paymentStatus, dueDate } = saleData
+    const { customer, items, notes, userId, currency, exchangeRate, paymentMethod, paymentStatus, dueDate } = saleData
 
     try {
         // 1. Calculate total price and prepare order
@@ -21,9 +20,9 @@ export async function registerSale(saleData) {
                 .eq('id', item.productId)
                 .single()
 
-            if (pError || !product) throw new Error(`Producto no encontrado ID: ${ item.productId } `)
+            if (pError || !product) throw new Error(`Producto no encontrado ID: ${item.productId} `)
             if (product.stock < item.quantity) {
-                throw new Error(`Stock insuficiente para ${ product.name }.Disponible: ${ product.stock } `)
+                throw new Error(`Stock insuficiente para ${product.name}.Disponible: ${product.stock} `)
             }
 
             const itemTotal = product.price * item.quantity
@@ -72,7 +71,7 @@ export async function registerSale(saleData) {
             await supabase.from('transactions').insert([{
                 type: 'ingreso',
                 category: 'venta',
-                concept: `Venta de ${ item.quantity }x ${ item.name } `,
+                concept: `Venta de ${item.quantity}x ${item.name} `,
                 amount: item.total,
                 currency: currency || 'USD',
                 exchange_rate: exchangeRate || 1.0,
