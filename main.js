@@ -1,5 +1,5 @@
 import './style.css'
-import { supabase } from './src/supabase.js'
+import { supabase, getUserProfile } from './src/supabase.js'
 import { fetchProducts, createProduct, updateProduct, deleteProduct, uploadImageToCloudinary } from './src/inventory.js'
 import { fetchOrders, updateOrderStatus, deleteOrder } from './src/orders.js'
 
@@ -31,24 +31,54 @@ document.addEventListener('DOMContentLoaded', () => {
   const productsTbody = document.getElementById('products-tbody')
   const ordersTbody = document.getElementById('orders-tbody')
 
+  let currentUserRole = 'vendedor';
+  let inventoryEditEnabled = false;
+
   // Check active session on load
   async function checkSession() {
     const { data: { session } } = await supabase.auth.getSession()
 
     if (session) {
+      const profile = await getUserProfile(session.user.id);
+      currentUserRole = profile.role;
       showDashboard(session.user)
+      applyPermissions(currentUserRole);
     } else {
       showLogin()
     }
 
     // Listen for auth changes
-    supabase.auth.onAuthStateChange((_event, session) => {
+    supabase.auth.onAuthStateChange(async (_event, session) => {
       if (session) {
+        const profile = await getUserProfile(session.user.id);
+        currentUserRole = profile.role;
         showDashboard(session.user)
+        applyPermissions(currentUserRole);
       } else {
         showLogin()
       }
     })
+  }
+
+  function applyPermissions(role) {
+    const adminElements = document.querySelectorAll('.admin-only');
+    adminElements.forEach(el => {
+      el.style.display = (role === 'admin') ? 'block' : 'none';
+      if (el.tagName === 'A' && role === 'admin') el.style.display = 'block';
+    });
+
+    // Handle inventory edit restriction
+    updateInventoryUIState();
+  }
+
+  function updateInventoryUIState() {
+    const canEdit = (currentUserRole === 'admin' || inventoryEditEnabled);
+    if (btnNewProduct) btnNewProduct.style.display = canEdit ? 'block' : 'none';
+
+    // Disable/Enable edit buttons in rows
+    document.querySelectorAll('.edit-btn').forEach(btn => {
+      btn.style.display = canEdit ? 'block' : 'none';
+    });
   }
 
   // UI State Management
