@@ -1,0 +1,214 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>D'Lux Admin Dashboard</title>
+</head>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.25/jspdf.plugin.autotable.min.js"></script>
+
+<body>
+    <div id="app">
+        <!-- Login Section -->
+        <div id="login-container">
+            <h2>D'Lux Boutique</h2>
+            <form id="login-form">
+                <div class="input-group">
+                    <label for="email">Email</label>
+                    <input type="email" id="email" required placeholder="admin@dlux.com">
+                </div>
+                <div class="input-group">
+                    <label for="password">Password</label>
+                    <input type="password" id="password" required placeholder="••••••••">
+                </div>
+                <button type="submit" class="btn">Login</button>
+                <div id="login-error" class="error-msg"></div>
+            </form>
+        </div>
+
+        <!-- Dashboard Section (Hidden by default) -->
+        <div id="dashboard-container" style="display: none;">
+            <nav class="sidebar">
+                <div class="logo">D'Lux Admin</div>
+                <ul>
+                    <li><a href="#" class="active" data-target="home">Dashboard</a></li>
+                    <li><a href="#" data-target="inventory">Inventory</a></li>
+                    <li><a href="#" data-target="orders">Orders</a></li>
+                </ul>
+                <button id="logout-btn" class="btn btn-outline">Logout</button>
+            </nav>
+            <main class="content">
+                <header>
+                    <h1 id="page-title">Dashboard</h1>
+                    <div class="user-profile">Admin User</div>
+                </header>
+                <div id="main-content">
+                    <!-- Dashboard View -->
+                    <div id="view-home" class="view-section">
+                        <div class="kpi-grid">
+                            <div class="kpi-card">
+                                <h3>Total Products</h3>
+                                <p id="kpi-products" class="kpi-value">0</p>
+                            </div>
+                            <div class="kpi-card">
+                                <h3>Total Orders</h3>
+                                <p id="kpi-sales" class="kpi-value">0</p>
+                            </div>
+                            <div class="kpi-card">
+                                <h3>Pending Orders</h3>
+                                <p id="kpi-orders" class="kpi-value" style="color: var(--warning);">0</p>
+                            </div>
+                            <div class="kpi-card">
+                                <h3>Total Revenue</h3>
+                                <p id="kpi-revenue" class="kpi-value" style="color: var(--success);">$0</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Inventory View -->
+                    <div id="view-inventory" class="view-section" style="display: none;">
+                        <div class="section-header">
+                            <h2>Products</h2>
+                            <div style="display: flex; gap: 1rem;">
+                                <button id="btn-sync-sheets" class="btn btn-outline"
+                                    style="width: auto; padding: 0.5rem 1rem;">&#8635; Sync from Sheets</button>
+                                <button id="btn-new-product" class="btn" style="width: auto; padding: 0.5rem 1rem;">+
+                                    New Product</button>
+                            </div>
+                        </div>
+                        <div class="table-container">
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>Image</th>
+                                        <th>Name</th>
+                                        <th>Price</th>
+                                        <th>Stock</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="products-tbody">
+                                    <!-- Products injected here -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Orders View -->
+                    <div id="view-orders" class="view-section" style="display: none;">
+                        <div class="section-header">
+                            <h2>Orders</h2>
+                        </div>
+                        <div class="table-container">
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>Date</th>
+                                        <th>Client</th>
+                                        <th>Items</th>
+                                        <th>Total</th>
+                                        <th>Status</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="orders-tbody">
+                                    <!-- Orders injected here -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <!-- Product Modal -->
+    <div id="product-modal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3 id="modal-title">Add New Product</h3>
+                <button id="close-modal">&times;</button>
+            </div>
+            <form id="product-form">
+                <div class="input-group">
+                    <label for="prod-name">Product Name</label>
+                    <input type="text" id="prod-name" required placeholder="Lux Item Name">
+                </div>
+                <div class="input-group">
+                    <label for="prod-sku">SKU / Code</label>
+                    <input type="text" id="prod-sku" placeholder="DLX-001">
+                </div>
+                <div class="input-group">
+                    <label for="prod-category">Category</label>
+                    <select id="prod-category" required>
+                        <option value="">Select Category</option>
+                        <option value="Ropa">Ropa</option>
+                        <option value="Calzado">Calzado</option>
+                        <option value="Accesorios">Accesorios</option>
+                        <option value="Electrónica">Electrónica</option>
+                        <option value="Otro">Otro</option>
+                    </select>
+                </div>
+                <div class="input-group">
+                    <label for="prod-desc">Description</label>
+                    <textarea id="prod-desc" rows="3" placeholder="Describe the luxury experience..."></textarea>
+                </div>
+                <div style="display: flex; gap: 1rem;">
+                    <div class="input-group" style="flex: 1;">
+                        <label for="prod-brand">Brand (Marca)</label>
+                        <input type="text" id="prod-brand" placeholder="D'Lux">
+                    </div>
+                    <div class="input-group" style="flex: 1;">
+                        <label for="prod-line">Line (Línea)</label>
+                        <input type="text" id="prod-line" placeholder="Boutique">
+                    </div>
+                </div>
+                <div style="display: flex; gap: 1rem;">
+                    <div class="input-group" style="flex: 1;">
+                        <label for="prod-sizes">Sizes (Tallas)</label>
+                        <input type="text" id="prod-sizes" placeholder="S, M, L">
+                    </div>
+                    <div class="input-group" style="flex: 1;">
+                        <label for="prod-colors">Colors (Colores)</label>
+                        <input type="text" id="prod-colors" placeholder="Gold, Black">
+                    </div>
+                </div>
+                <div style="display: flex; gap: 1rem;">
+                    <div class="input-group" style="flex: 1;">
+                        <label for="prod-price">Sale Price ($)</label>
+                        <input type="number" id="prod-price" step="0.01" required>
+                    </div>
+                    <div class="input-group" style="flex: 1;">
+                        <label for="prod-cost">Cost Price ($)</label>
+                        <input type="number" id="prod-cost" step="0.01">
+                    </div>
+                </div>
+                <div style="display: flex; gap: 1rem;">
+                    <div class="input-group" style="flex: 1;">
+                        <label for="prod-stock">Stock</label>
+                        <input type="number" id="prod-stock" required>
+                    </div>
+                    <div class="input-group" style="flex: 1;">
+                        <label for="prod-status">Status</label>
+                        <select id="prod-status" required>
+                            <option value="active">Active</option>
+                            <option value="draft">Draft</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="input-group">
+                    <label for="prod-image">Product Image</label>
+                    <input type="file" id="prod-image" accept="image/*">
+                </div>
+                <button type="submit" id="save-product-btn" class="btn">Save Masterpiece</button>
+                <div id="product-error" class="error-msg"></div>
+            </form>
+        </div>
+    </div>
+    <script type="module" src="/main.js"></script>
+</body>
+
+</html>
