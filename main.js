@@ -1,6 +1,6 @@
 import './style.css'
 import { supabase } from './src/supabase.js'
-import { fetchProducts, createProduct, deleteProduct, uploadImageToCloudinary } from './src/inventory.js'
+import { fetchProducts, createProduct, updateProduct, deleteProduct, uploadImageToCloudinary } from './src/inventory.js'
 import { fetchOrders, updateOrderStatus, deleteOrder } from './src/orders.js'
 
 const loginContainer = document.getElementById('login-container')
@@ -120,19 +120,47 @@ navLinks.forEach(link => {
       viewHome.style.display = 'block';
       loadKpis();
     } else if (target === 'inventory') {
-      pageTitle.textContent = 'Inventory';
+      pageTitle.textContent = 'Inventario';
       viewInventory.style.display = 'block';
       loadProductsTable();
     } else if (target === 'orders') {
-      pageTitle.textContent = 'Orders';
+      pageTitle.textContent = 'Pedidos';
       viewOrders.style.display = 'block';
       loadOrdersTable();
     }
   });
 });
 
+// Gallery Preview Logic
+const imageGalleryPreview = document.getElementById('image-gallery-preview');
+const prodImageInput = document.getElementById('prod-image');
+
+prodImageInput.addEventListener('change', (e) => {
+  imageGalleryPreview.innerHTML = '';
+  const files = Array.from(e.target.files).slice(0, 5);
+  files.forEach(file => {
+    const reader = new FileReader();
+    reader.onload = (rev) => {
+      const img = document.createElement('img');
+      img.src = rev.target.result;
+      img.style.width = '60px';
+      img.style.height = '60px';
+      img.style.objectFit = 'cover';
+      img.style.borderRadius = '4px';
+      img.style.border = '1px solid var(--border-clean)';
+      imageGalleryPreview.appendChild(img);
+    };
+    reader.readAsDataURL(file);
+  });
+});
+
 // Modal Logic
 btnNewProduct.addEventListener('click', () => {
+  productForm.reset();
+  document.getElementById('prod-id').value = '';
+  document.getElementById('modal-title').textContent = 'Nuevo Producto';
+  document.getElementById('delete-product-btn').style.display = 'none';
+  imageGalleryPreview.innerHTML = '';
   productModal.style.display = 'flex';
 });
 
@@ -190,46 +218,84 @@ btnSyncSheets.addEventListener('click', async () => {
 
 // Load Products
 async function loadProductsTable() {
-  productsTbody.innerHTML = '<tr><td colspan="6" style="text-align: center;">Loading...</td></tr>';
+  productsTbody.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 2rem;">Cargando inventario...</td></tr>';
   try {
     const products = await fetchProducts();
     document.getElementById('kpi-products').textContent = products.length;
 
     if (products.length === 0) {
-      productsTbody.innerHTML = '<tr><td colspan="6" style="text-align: center;">No products found.</td></tr>';
+      productsTbody.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 2rem;">No hay productos en el inventario.</td></tr>';
       return;
     }
 
     productsTbody.innerHTML = '';
     products.forEach(p => {
       const tr = document.createElement('tr');
+
+      // Determine image (handle gallery or single url)
+      let mainImg = '/vite.svg';
+      if (p.images && p.images.length > 0) mainImg = p.images[0];
+      else if (p.image_url) mainImg = p.image_url;
+
+      const stockClass = p.stock <= 0 ? 'badge-danger' : (p.stock <= 5 ? 'badge-warning' : 'badge-success');
+      const stockText = p.stock <= 0 ? 'Agotado' : (p.stock <= 5 ? 'Bajo Stock' : 'Disponible');
+
       tr.innerHTML = `
-        <td><img src="${p.image_url || '/vite.svg'}" class="product-img-thumb" alt="product"></td>
-        <td><strong>${p.name}</strong><br><small style="color:var(--text-muted)">${p.sku || ''}</small></td>
-        <td>$${p.price.toFixed(2)}</td>
-        <td>${p.stock}</td>
+        <td><img src="${mainImg}" class="product-img-thumb" onerror="this.src='/vite.svg'"></td>
         <td>
-          <button class="btn btn-outline btn-small delete-btn" data-id="${p.id}" style="color: var(--danger); border-color: var(--danger);">Delete</button>
+          <div style="font-weight:700">${p.name}</div>
+          <div style="font-size:0.7rem; color:var(--text-muted)">${p.sku || 'SIN SKU'}</div>
+        </td>
+        <td style="font-weight:600">$${p.price.toFixed(2)}</td>
+        <td>${p.stock}</td>
+        <td><span class="badge ${stockClass}">${stockText}</span></td>
+        <td>
+          <button class="btn btn-outline btn-small edit-btn" data-id="${p.id}">Editar</button>
         </td>
       `;
       productsTbody.appendChild(tr);
     });
 
-    // Attach delete handlers
-    document.querySelectorAll('.delete-btn').forEach(btn => {
-      btn.addEventListener('click', async (e) => {
-        if (confirm('Are you sure you want to delete this product?')) {
-          const id = e.target.getAttribute('data-id');
-          await deleteProduct(id);
-          loadProductsTable(); // Refresh
-        }
+    // Attach edit handlers
+    document.querySelectorAll('.edit-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        const id = e.target.getAttribute('data-id');
+        const product = products.find(p => String(p.id) === String(id));
+        if (product) openEditModal(product);
       });
     });
 
   } catch (error) {
-    productsTbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: var(--danger);">Error loading products. Table may not exist yet.</td></tr>';
+    productsTbody.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 2rem; color: var(--danger);">Error al cargar productos. Por favor intente de nuevo.</td></tr>';
     console.error(error);
   }
+}
+
+function openEditModal(p) {
+  productForm.reset();
+  document.getElementById('prod-id').value = p.id;
+  document.getElementById('prod-name').value = p.name;
+  document.getElementById('prod-price').value = p.price;
+  document.getElementById('prod-stock').value = p.stock;
+  document.getElementById('prod-desc').value = p.description || '';
+  document.getElementById('prod-status').value = p.status || 'active';
+
+  document.getElementById('modal-title').textContent = 'Editar Producto';
+  document.getElementById('delete-product-btn').style.display = 'block';
+
+  // Show images
+  imageGalleryPreview.innerHTML = '';
+  const currentImages = p.images || (p.image_url ? [p.image_url] : []);
+  currentImages.forEach(url => {
+    const img = document.createElement('img');
+    img.src = url;
+    img.style.width = '60px'; img.style.height = '60px';
+    img.style.objectFit = 'cover'; img.style.borderRadius = '4px';
+    img.style.border = '1px solid var(--border-clean)';
+    imageGalleryPreview.appendChild(img);
+  });
+
+  productModal.style.display = 'flex';
 }
 
 // Load Orders
@@ -433,57 +499,62 @@ function generateReceiptPDF(order) {
   doc.save(`DLUX_RECIBO_${order.order_number}.pdf`);
 }
 
-// Create Product Form Submission
+// Create/Update Product Form Submission
 productForm.addEventListener('submit', async (e) => {
   e.preventDefault();
   productError.textContent = '';
-  saveProductBtn.textContent = 'Uploading Image...';
+
+  const id = document.getElementById('prod-id').value;
+  saveProductBtn.textContent = 'Procesando...';
   saveProductBtn.disabled = true;
 
   try {
     const name = document.getElementById('prod-name').value;
-    const sku = document.getElementById('prod-sku').value;
-    const category = document.getElementById('prod-category').value;
-    const description = document.getElementById('prod-desc').value;
-    const brand = document.getElementById('prod-brand').value;
-    const line = document.getElementById('prod-line').value;
-    const sizes = document.getElementById('prod-sizes').value;
-    const colors = document.getElementById('prod-colors').value;
     const price = parseFloat(document.getElementById('prod-price').value);
-    const cost_price = document.getElementById('prod-cost').value ? parseFloat(document.getElementById('prod-cost').value) : 0;
     const stock = parseInt(document.getElementById('prod-stock').value, 10);
+    const description = document.getElementById('prod-desc').value;
     const status = document.getElementById('prod-status').value;
     const fileInput = document.getElementById('prod-image');
 
-    let imageUrl = '';
+    let images = [];
 
+    // If editing, start with current images if no new ones are uploaded? 
+    // Simplified: If new files uploaded, they replace or add. Let's do "replace" for now to keep it clean, or "append".
+    // For a serious tool: If files uploaded, we upload them.
     if (fileInput.files.length > 0) {
-      const file = fileInput.files[0];
-      imageUrl = await uploadImageToCloudinary(file);
+      saveProductBtn.textContent = 'Subiendo Imágenes...';
+      const files = Array.from(fileInput.files).slice(0, 5);
+      for (const file of files) {
+        const url = await uploadImageToCloudinary(file);
+        images.push(url);
+      }
     }
 
-    saveProductBtn.textContent = 'Saving to Database...';
-
-    await createProduct({
+    const productData = {
       name,
-      sku,
-      category,
-      brand,
-      line,
-      sizes,
-      colors,
-      description,
       price,
-      cost_price,
       stock,
-      status,
-      image_url: imageUrl
-    });
+      description,
+      status
+    };
+
+    if (images.length > 0) {
+      productData.images = images; // Update images if new ones selected
+    }
+
+    if (id) {
+      saveProductBtn.textContent = 'Actualizando...';
+      await updateProduct(id, productData);
+    } else {
+      saveProductBtn.textContent = 'Creando...';
+      // If creating and no images, maybe alert?
+      await createProduct(productData);
+    }
 
     // Success
     productModal.style.display = 'none';
     productForm.reset();
-    saveProductBtn.textContent = 'Save Product';
+    saveProductBtn.textContent = 'Guardar Cambios';
     saveProductBtn.disabled = false;
 
     // Refresh table
@@ -491,9 +562,25 @@ productForm.addEventListener('submit', async (e) => {
 
   } catch (error) {
     console.error(error);
-    productError.textContent = error.message;
-    saveProductBtn.textContent = 'Save Product';
+    productError.textContent = 'Error: ' + error.message;
+    saveProductBtn.textContent = 'Guardar Cambios';
     saveProductBtn.disabled = false;
+  }
+});
+
+// Delete Product Handler
+document.getElementById('delete-product-btn').addEventListener('click', async () => {
+  const id = document.getElementById('prod-id').value;
+  if (!id) return;
+
+  if (confirm('¿Realmente desea eliminar este producto de forma permanente?')) {
+    try {
+      await deleteProduct(id);
+      productModal.style.display = 'none';
+      loadProductsTable();
+    } catch (error) {
+      productError.textContent = 'Error al eliminar: ' + error.message;
+    }
   }
 });
 

@@ -35,88 +35,82 @@
                 <div class="logo">D'Lux Admin</div>
                 <ul>
                     <li><a href="#" class="active" data-target="home">Dashboard</a></li>
-                    <li><a href="#" data-target="inventory">Inventory</a></li>
-                    <li><a href="#" data-target="orders">Orders</a></li>
+                    <li><a href="#" data-target="inventory">Inventario</a></li>
+                    <li><a href="#" data-target="orders">Pedidos</a></li>
                 </ul>
-                <button id="logout-btn" class="btn btn-outline">Logout</button>
+                <button id="logout-btn" class="btn btn-outline">Cerrar Sesión</button>
             </nav>
             <main class="content">
                 <header>
                     <h1 id="page-title">Dashboard</h1>
-                    <div class="user-profile">Admin User</div>
+                    <div class="user-profile">Usuario Admin</div>
                 </header>
                 <div id="main-content">
                     <!-- Dashboard View -->
                     <div id="view-home" class="view-section">
                         <div class="kpi-grid">
                             <div class="kpi-card">
-                                <h3>Total Products</h3>
+                                <h3>Productos Totales</h3>
                                 <p id="kpi-products" class="kpi-value">0</p>
                             </div>
                             <div class="kpi-card">
-                                <h3>Total Orders</h3>
+                                <h3>Pedidos Totales</h3>
                                 <p id="kpi-sales" class="kpi-value">0</p>
                             </div>
                             <div class="kpi-card">
-                                <h3>Pending Orders</h3>
-                                <p id="kpi-orders" class="kpi-value" style="color: var(--warning);">0</p>
+                                <h3>Pendientes</h3>
+                                <p id="kpi-orders" class="kpi-value">0</p>
                             </div>
                             <div class="kpi-card">
-                                <h3>Total Revenue</h3>
-                                <p id="kpi-revenue" class="kpi-value" style="color: var(--success);">$0</p>
+                                <h3>Ventas Totales</h3>
+                                <p id="kpi-revenue" class="kpi-value">$0.00</p>
                             </div>
                         </div>
                     </div>
 
                     <!-- Inventory View -->
                     <div id="view-inventory" class="view-section" style="display: none;">
-                        <div class="section-header">
-                            <h2>Products</h2>
-                            <div style="display: flex; gap: 1rem;">
-                                <button id="btn-sync-sheets" class="btn btn-outline"
-                                    style="width: auto; padding: 0.5rem 1rem;">&#8635; Sync from Sheets</button>
-                                <button id="btn-new-product" class="btn" style="width: auto; padding: 0.5rem 1rem;">+
-                                    New Product</button>
-                            </div>
+                        <div class="section-header"
+                            style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
+                            <h2>Inventario</h2>
+                            <button id="btn-new-product" class="btn" style="width: auto; padding: 0.5rem 1.5rem;">+
+                                Nuevo Producto</button>
                         </div>
                         <div class="table-container">
                             <table class="data-table">
                                 <thead>
                                     <tr>
-                                        <th>Image</th>
-                                        <th>Name</th>
-                                        <th>Price</th>
+                                        <th>Imagen</th>
+                                        <th>Nombre</th>
+                                        <th>Precio</th>
                                         <th>Stock</th>
-                                        <th>Actions</th>
+                                        <th>Estado</th>
+                                        <th>Acciones</th>
                                     </tr>
                                 </thead>
-                                <tbody id="products-tbody">
-                                    <!-- Products injected here -->
-                                </tbody>
+                                <tbody id="products-tbody"></tbody>
                             </table>
                         </div>
                     </div>
 
                     <!-- Orders View -->
                     <div id="view-orders" class="view-section" style="display: none;">
-                        <div class="section-header">
-                            <h2>Orders</h2>
+                        <div class="section-header" style="margin-bottom: 2rem;">
+                            <h2>Pedidos</h2>
                         </div>
                         <div class="table-container">
                             <table class="data-table">
                                 <thead>
                                     <tr>
-                                        <th>Date</th>
-                                        <th>Client</th>
-                                        <th>Items</th>
+                                        <th>Fecha</th>
+                                        <th>Cliente</th>
+                                        <th>Artículos</th>
                                         <th>Total</th>
-                                        <th>Status</th>
-                                        <th>Actions</th>
+                                        <th>Estado</th>
+                                        <th>Acciones</th>
                                     </tr>
                                 </thead>
-                                <tbody id="orders-tbody">
-                                    <!-- Orders injected here -->
-                                </tbody>
+                                <tbody id="orders-tbody"></tbody>
                             </table>
                         </div>
                     </div>
@@ -129,82 +123,53 @@
     <div id="product-modal" class="modal" style="display: none;">
         <div class="modal-content">
             <div class="modal-header">
-                <h3 id="modal-title">Add New Product</h3>
-                <button id="close-modal">&times;</button>
+                <h3 id="modal-title">Gestión de Producto</h3>
+                <button id="close-modal"
+                    style="background:none; border:none; font-size:1.5rem; cursor:pointer;">&times;</button>
             </div>
             <form id="product-form">
+                <input type="hidden" id="prod-id">
                 <div class="input-group">
-                    <label for="prod-name">Product Name</label>
-                    <input type="text" id="prod-name" required placeholder="Lux Item Name">
+                    <label for="prod-name">Nombre del Producto</label>
+                    <input type="text" id="prod-name" required placeholder="Ej: Bolso de Cuero">
                 </div>
-                <div class="input-group">
-                    <label for="prod-sku">SKU / Code</label>
-                    <input type="text" id="prod-sku" placeholder="DLX-001">
-                </div>
-                <div class="input-group">
-                    <label for="prod-category">Category</label>
-                    <select id="prod-category" required>
-                        <option value="">Select Category</option>
-                        <option value="Ropa">Ropa</option>
-                        <option value="Calzado">Calzado</option>
-                        <option value="Accesorios">Accesorios</option>
-                        <option value="Electrónica">Electrónica</option>
-                        <option value="Otro">Otro</option>
-                    </select>
-                </div>
-                <div class="input-group">
-                    <label for="prod-desc">Description</label>
-                    <textarea id="prod-desc" rows="3" placeholder="Describe the luxury experience..."></textarea>
-                </div>
-                <div style="display: flex; gap: 1rem;">
-                    <div class="input-group" style="flex: 1;">
-                        <label for="prod-brand">Brand (Marca)</label>
-                        <input type="text" id="prod-brand" placeholder="D'Lux">
-                    </div>
-                    <div class="input-group" style="flex: 1;">
-                        <label for="prod-line">Line (Línea)</label>
-                        <input type="text" id="prod-line" placeholder="Boutique">
-                    </div>
-                </div>
-                <div style="display: flex; gap: 1rem;">
-                    <div class="input-group" style="flex: 1;">
-                        <label for="prod-sizes">Sizes (Tallas)</label>
-                        <input type="text" id="prod-sizes" placeholder="S, M, L">
-                    </div>
-                    <div class="input-group" style="flex: 1;">
-                        <label for="prod-colors">Colors (Colores)</label>
-                        <input type="text" id="prod-colors" placeholder="Gold, Black">
-                    </div>
-                </div>
-                <div style="display: flex; gap: 1rem;">
-                    <div class="input-group" style="flex: 1;">
-                        <label for="prod-price">Sale Price ($)</label>
+                <div style="display: flex; gap: 1rem; margin-bottom: 1.25rem;">
+                    <div class="input-group" style="flex: 1; margin-bottom: 0;">
+                        <label for="prod-price">Precio de Venta ($)</label>
                         <input type="number" id="prod-price" step="0.01" required>
                     </div>
-                    <div class="input-group" style="flex: 1;">
-                        <label for="prod-cost">Cost Price ($)</label>
-                        <input type="number" id="prod-cost" step="0.01">
-                    </div>
-                </div>
-                <div style="display: flex; gap: 1rem;">
-                    <div class="input-group" style="flex: 1;">
-                        <label for="prod-stock">Stock</label>
+                    <div class="input-group" style="flex: 1; margin-bottom: 0;">
+                        <label for="prod-stock">Stock Actual</label>
                         <input type="number" id="prod-stock" required>
-                    </div>
-                    <div class="input-group" style="flex: 1;">
-                        <label for="prod-status">Status</label>
-                        <select id="prod-status" required>
-                            <option value="active">Active</option>
-                            <option value="draft">Draft</option>
-                        </select>
                     </div>
                 </div>
                 <div class="input-group">
-                    <label for="prod-image">Product Image</label>
-                    <input type="file" id="prod-image" accept="image/*">
+                    <label for="prod-desc">Descripción</label>
+                    <textarea id="prod-desc" rows="3" placeholder="Detalles del producto..."></textarea>
                 </div>
-                <button type="submit" id="save-product-btn" class="btn">Save Masterpiece</button>
-                <div id="product-error" class="error-msg"></div>
+                <div class="input-group">
+                    <label>Imágenes (Hasta 5)</label>
+                    <div id="image-gallery-preview"
+                        style="display: flex; gap: 0.5rem; margin-bottom: 0.5rem; flex-wrap: wrap;"></div>
+                    <input type="file" id="prod-image" accept="image/*" multiple>
+                    <small style="color: var(--text-muted);">Puedes seleccionar varias imágenes.</small>
+                </div>
+                <div class="input-group">
+                    <label for="prod-status">Estado</label>
+                    <select id="prod-status" required>
+                        <option value="active">Activo</option>
+                        <option value="draft">Borrador</option>
+                        <option value="archived">Archivado</option>
+                    </select>
+                </div>
+                <div style="display: flex; gap: 1rem; margin-top: 2rem;">
+                    <button type="button" id="delete-product-btn" class="btn btn-outline"
+                        style="color: var(--danger); border-color: var(--danger); display: none;">Eliminar
+                        Producto</button>
+                    <button type="submit" id="save-product-btn" class="btn">Guardar Cambios</button>
+                </div>
+                <div id="product-error" class="error-msg"
+                    style="color: var(--danger); margin-top: 1rem; font-size: 0.8rem;"></div>
             </form>
         </div>
     </div>
