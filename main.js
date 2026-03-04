@@ -195,8 +195,38 @@ document.addEventListener('DOMContentLoaded', () => {
       if (target === 'inventory') loadProductsTable();
       if (target === 'orders') loadOrdersTable();
       if (target === 'reports') loadReportsTable();
+      if (target === 'users') loadUsersTable();
     });
   });
+
+  async function loadUsersTable() {
+    const usersTbody = document.getElementById('users-tbody');
+    if (!usersTbody) return;
+
+    try {
+      usersTbody.innerHTML = '<tr><td colspan="4" style="text-align: center;">Cargando equipo...</td></tr>';
+      const { data: users, error } = await supabase.from('profiles').select('*');
+      if (error) throw error;
+
+      usersTbody.innerHTML = '';
+      users.forEach(u => {
+        const tr = document.createElement('tr');
+        const roleBadge = u.role === 'admin' ? 'badge-primary' : 'badge-outline';
+        tr.innerHTML = `
+          <td><strong>${u.id.substring(0, 8)}...</strong></td>
+          <td><span class="badge ${roleBadge}">${u.role}</span></td>
+          <td><span class="badge badge-success">Activo</span></td>
+          <td>
+            <button class="btn btn-outline btn-small dev-only" disabled>Editar Rol</button>
+          </td>
+        `;
+        usersTbody.appendChild(tr);
+      });
+    } catch (e) {
+      console.error(e);
+      usersTbody.innerHTML = '<tr><td colspan="4" style="text-align: center; color:var(--danger)">Error cargando usuarios.</td></tr>';
+    }
+  }
 
   // Gallery Preview Logic
   const imageGalleryPreview = document.getElementById('image-gallery-preview');
