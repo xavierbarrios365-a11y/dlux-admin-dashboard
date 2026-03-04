@@ -158,6 +158,28 @@ document.addEventListener('DOMContentLoaded', () => {
     return name.replace(/[:\\/<>*|?]/g, '-').replace(/\s+/g, '_');
   }
 
+  // Descarga robusta usando Blob y etiqueta Ancla para evitar UUIDs en Chrome
+  function forceDownloadPDF(doc, filename) {
+    const rawFilename = sanitizeFilename(filename);
+    try {
+      const blob = doc.output('blob');
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.style.display = 'none';
+      a.href = url;
+      a.download = rawFilename;
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(() => {
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      }, 100);
+    } catch (e) {
+      console.warn("Blob saving failed, falling back to doc.save()", e);
+      doc.save(rawFilename); // Fallback en caso de que el entorno no soporte Blobs
+    }
+  }
+
   function showToast(message, type = 'success') {
     const toast = document.createElement('div')
     toast.className = `toast ${type}`
@@ -448,10 +470,10 @@ document.addEventListener('DOMContentLoaded', () => {
     if (btnDeleteTrans) {
       showCustomConfirm(
         'Eliminar Registro',
-        '¿Deseas eliminar este registro financiero? Nota: Esto no afectará el stock automáticamente.',
+        '¿Eliminar este registro financiero permanentemente?\nNota: Esto NO revierte el stock ni las ventas relacionadas.',
         async () => {
           const transId = btnDeleteTrans.getAttribute('data-id')
-          btnDeleteTrans.disabled = true
+          if (btnDeleteTrans && document.body.contains(btnDeleteTrans)) btnDeleteTrans.disabled = true
           try {
             const { error } = await supabase.from('transactions').delete().eq('id', transId)
             if (error) throw error
@@ -465,6 +487,26 @@ document.addEventListener('DOMContentLoaded', () => {
           }
         }
       )
+      return
+    }
+
+    // ---- Editar Registro Auditoría ----
+    const btnEditTrans = target.closest('.edit-trans')
+    if (btnEditTrans) {
+      const transId = btnEditTrans.getAttribute('data-id')
+      try {
+        const { data: trans, error } = await supabase.from('transactions').select('*').eq('id', transId).single()
+        if (error) throw error
+
+        document.getElementById('edit-trans-id').value = trans.id
+        document.getElementById('edit-trans-concept').value = trans.concept
+        document.getElementById('edit-trans-amount').value = trans.amount
+        document.getElementById('edit-trans-method').value = trans.payment_method || 'Bs'
+
+        document.getElementById('edit-trans-modal').style.display = 'flex'
+      } catch (err) {
+        showToast('Error al cargar datos del movimiento', 'error')
+      }
       return
     }
 
@@ -505,7 +547,7 @@ document.addEventListener('DOMContentLoaded', () => {
         headStyles: { fillColor: [0, 0, 0] }
       });
 
-      doc.save(sanitizeFilename(`Auditoria_Dlux_${Date.now()}.pdf`));
+      forceDownloadPDF(doc, `Auditoria_Dlux_${Date.now()}.pdf`);
       showToast("PDF Descargado", "success");
       return
     }
@@ -706,6 +748,49 @@ document.addEventListener('DOMContentLoaded', () => {
         loadCreditsTable()
       } else {
         abonoError.textContent = res.error
+      }
+    })
+  }
+
+  // --- Lógica Editar Movimiento (Auditoría) ---
+  const editTransModal = document.getElementById('edit-trans-modal')
+  const closeEditTransModalBtn = document.getElementById('close-edit-trans-modal')
+  const editTransForm = document.getElementById('edit-trans-form')
+
+  if (closeEditTransModalBtn) closeEditTransModalBtn.addEventListener('click', () => editTransModal.style.display = 'none')
+
+  if (editTransForm) {
+    editTransForm.addEventListener('submit', async (e) => {
+      e.preventDefault()
+      const errorDiv = document.getElementById('edit-trans-error')
+      errorDiv.textContent = ''
+      const btn = document.getElementById('save-edit-trans-btn')
+      btn.disabled = true
+
+      const id = document.getElementById('edit-trans-id').value
+      const concept = document.getElementById('edit-trans-concept').value
+      const amount = parseFloat(document.getElementById('edit-trans-amount').value)
+      const method = document.getElementById('edit-trans-method').value
+
+      try {
+        const { error } = await supabase.from('transactions')
+          .update({
+            concept: concept,
+            amount: amount,
+            payment_method: method
+          })
+          .eq('id', id)
+
+        if (error) throw error
+
+        editTransModal.style.display = 'none'
+        await loadAuditTable()
+        if (typeof loadHomeData === 'function') loadHomeData()
+        showToast('Movimiento actualizado correctamente', 'success')
+      } catch (err) {
+        errorDiv.textContent = 'Error al actualizar: ' + err.message
+      } finally {
+        btn.disabled = false
       }
     })
   }
@@ -920,7 +1005,7 @@ document.addEventListener('DOMContentLoaded', () => {
       headStyles: { fillColor: [0, 0, 0] }
     });
 
-    doc.save(sanitizeFilename(`Reporte_Dlux_${startDate}_${endDate}.pdf`));
+    forceDownloadPDF(doc, `Reporte_Dlux_${startDate}_${endDate}.pdf`);
   });
 
   // --- Dashboard Home ---
@@ -1079,7 +1164,7 @@ document.addEventListener('DOMContentLoaded', () => {
     doc.line(110, 110, 190, 110)
     doc.text("Firma Autorizada Admin", 110, 115)
 
-    doc.save(sanitizeFilename(`salida_${productName}.pdf`))
+    forceDownloadPDF(doc, `salida_${productName}.pdf`)
   }
 
   // --- Tasa de Cambio DolarAPI ---
@@ -1122,7 +1207,10 @@ document.addEventListener('DOMContentLoaded', () => {
           <td>${t.concept}</td>
           <td>${isExit ? `<strong>${t.exit_reason}</strong> / ${t.received_by}` : (t.payment_method || 'N/A')}</td>
           <td>$${t.amount.toFixed(2)}</td>
-          <td><button class="btn btn-outline btn-small delete-trans" data-id="${t.id}" style="padding: 2px 8px;">&times;</button></td>
+          <td>
+            <button class="btn btn-outline btn-small edit-trans" data-id="${t.id}" style="padding: 2px 8px; margin-right: 4px;" title="Editar">✏️</button>
+            <button class="btn btn-outline btn-small btn-danger delete-trans" data-id="${t.id}" style="padding: 2px 8px;" title="Eliminar">&times;</button>
+          </td>
         `
         tbody.appendChild(tr)
       })
@@ -1155,6 +1243,35 @@ document.addEventListener('DOMContentLoaded', () => {
             btnDeleteTrans.textContent = '×'
           }
         }
+      }
+      return
+    }
+
+    // ---- Editar Registro ----
+    const btnEditTrans = e.target.closest('.edit-trans')
+    if (btnEditTrans) {
+      console.log('Trace: Edit transaction button clicked');
+      const transId = btnEditTrans.getAttribute('data-id')
+      const transType = btnEditTrans.getAttribute('data-type')
+      const transConcept = btnEditTrans.getAttribute('data-concept')
+      const transAmount = btnEditTrans.getAttribute('data-amount')
+      const transCategory = btnEditTrans.getAttribute('data-category')
+      const transPaymentMethod = btnEditTrans.getAttribute('data-payment-method')
+
+      const editTransModal = document.getElementById('edit-transaction-modal')
+      const editTransForm = document.getElementById('edit-transaction-form')
+      const editTransError = document.getElementById('edit-transaction-error')
+
+      if (editTransModal && editTransForm) {
+        editTransForm.reset()
+        document.getElementById('edit-trans-id').value = transId
+        document.getElementById('edit-trans-type').value = transType
+        document.getElementById('edit-trans-concept').value = transConcept
+        document.getElementById('edit-trans-amount').value = parseFloat(transAmount).toFixed(2)
+        document.getElementById('edit-trans-category').value = transCategory
+        document.getElementById('edit-trans-payment-method').value = transPaymentMethod
+        if (editTransError) editTransError.textContent = ''
+        editTransModal.style.display = 'flex'
       }
       return
     }
@@ -1197,7 +1314,7 @@ document.addEventListener('DOMContentLoaded', () => {
         headStyles: { fillColor: [0, 0, 0] }
       });
 
-      doc.save(sanitizeFilename(`Auditoria_Dlux_${Date.now()}.pdf`));
+      forceDownloadPDF(doc, sanitizeFilename(`Auditoria_Dlux_${Date.now()}.pdf`));
       return
     }
 
