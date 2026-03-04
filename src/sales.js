@@ -5,7 +5,7 @@ import { supabase } from './supabase.js'
  * @param {Object} saleData - { customer, items: [{ productId, quantity }], notes, userId, currency, exchangeRate, paymentMethod, paymentStatus, dueDate }
  */
 export async function registerSale(saleData) {
-    const { customer, items, notes, userId, currency, exchangeRate, paymentMethod, paymentStatus, dueDate } = saleData
+    const { customer, items, notes, userId, currency, exchangeRate, paymentMethod, paymentStatus, dueDate, installments, paymentCycle } = saleData
 
     try {
         // 1. Calculate total price and prepare order
@@ -93,7 +93,9 @@ export async function registerSale(saleData) {
                 due_date: dueDate,
                 status: 'pending',
                 created_by: userId,
-                order_id: order.id // Link credit to the order
+                order_id: order.id, // Link credit to the order
+                installments: paymentStatus === 'pending' ? (installments || 1) : 1,
+                payment_cycle: paymentStatus === 'pending' ? (paymentCycle || 'mensual') : 'unico'
             }]);
         }
 
@@ -116,23 +118,26 @@ export async function fetchTransactions() {
 }
 
 export async function getFinancialSummary() {
-    const { data: incomeData } = await supabase.rpc('get_total_income') // Placeholder for RPC
-    const { data: expenseData } = await supabase.rpc('get_total_expenses')
+    const { data: all } = await supabase.from('transactions').select('type, amount, payment_method')
+    if (!all) return { totalRevenue: 0, totalExpenses: 0, netProfit: 0, breakdown: {} }
 
-    // Alternative: manual aggregate
-    const { data: all } = await supabase.from('transactions').select('type, amount')
-    if (!all) return { totalRevenue: 0, totalExpenses: 0, netProfit: 0 }
-
+    const breakdown = {}
     const totals = all.reduce((acc, curr) => {
-        if (curr.type === 'ingreso') acc.income += curr.amount
-        else acc.expense += curr.amount
+        if (curr.type === 'ingreso') {
+            acc.income += curr.amount
+            const method = curr.payment_method || 'Otro'
+            breakdown[method] = (breakdown[method] || 0) + curr.amount
+        } else {
+            acc.expense += curr.amount
+        }
         return acc
     }, { income: 0, expense: 0 })
 
     return {
         totalRevenue: totals.income,
         totalExpenses: totals.expense,
-        netProfit: totals.income - totals.expense
+        netProfit: totals.income - totals.expense,
+        breakdown
     }
 }
 
@@ -247,5 +252,50 @@ export async function registerPayroll(payrollData) {
     } catch (error) {
         console.error('Error al registrar nómina:', error);
         return { success: false, error: error.message };
+    }
+}
+/**
+ * Registra una salida de inventario (Regalo, Retiro, Merma)
+ * @param {Object} exitData - { productId, quantity, reason, receivedBy, userId }
+ */
+export async function registerInventoryExit(exitData) {
+    const { productId, quantity, reason, receivedBy, userId } = exitData
+
+    try {
+        // 1. Obtener producto
+        const { data: product, error: pError } = await supabase
+            .from('products')
+            .select('name, price, stock')
+            .eq('id', productId)
+            .single()
+
+        if (pError || !product) throw new Error("Producto no encontrado")
+        if (product.stock < quantity) throw new Error("Stock insuficiente")
+
+        // 2. Descontar Stock
+        const { error: sError } = await supabase
+            .from('products')
+            .update({ stock: product.stock - quantity })
+            .eq('id', productId)
+
+        if (sError) throw sError
+
+        // 3. Registrar Transacción de tipo 'salida' (valor monetario 0 o costo para auditoría)
+        const { error: tError } = await supabase.from('transactions').insert([{
+            type: 'egreso', // Se registra como egreso de inventario
+            category: 'inventario_salida',
+            concept: `Salida: ${quantity}x ${product.name} (${reason})`,
+            amount: 0, // No es flujo de caja, es flujo de mercancía
+            exit_reason: reason,
+            received_by: receivedBy,
+            created_by: userId
+        }])
+
+        if (tError) throw tError
+
+        return { success: true, productName: product.name }
+    } catch (error) {
+        console.error('Error en salida de inventario:', error)
+        return { success: false, error: error.message }
     }
 }

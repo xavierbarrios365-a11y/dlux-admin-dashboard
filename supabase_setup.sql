@@ -151,6 +151,16 @@ ADD COLUMN IF NOT EXISTS order_id uuid REFERENCES public.orders(id) ON DELETE SE
 ALTER TABLE public.products
 ADD COLUMN IF NOT EXISTS gender TEXT DEFAULT 'Unisex' CHECK (gender IN ('Woman', 'Men', 'Unisex'));
 
+-- Migración para transacciones con justificación
+ALTER TABLE public.transactions
+ADD COLUMN IF NOT EXISTS exit_reason TEXT,
+ADD COLUMN IF NOT EXISTS received_by TEXT;
+
+-- Migración para sistema de cuotas en Créditos
+ALTER TABLE public.credits
+ADD COLUMN IF NOT EXISTS installments INT DEFAULT 1,
+ADD COLUMN IF NOT EXISTS payment_cycle TEXT DEFAULT 'mensual';
+
 -- Function to set role on first login (optional, but good for UX)
 -- Note: You'll need to manually set one user as 'admin' in the database.
 

@@ -2,7 +2,7 @@ import './style.css'
 import { supabase, getUserProfile } from './src/supabase.js'
 import { fetchProducts, createProduct, updateProduct, deleteProduct, uploadImageToCloudinary } from './src/inventory.js'
 import { fetchOrders, updateOrderStatus, deleteOrder } from './src/orders.js'
-import { registerSale, registerExpense, fetchTransactions, getFinancialSummary, registerPayment, registerPayroll } from './src/sales.js'
+import { registerSale, registerExpense, fetchTransactions, getFinancialSummary, registerPayment, registerPayroll, registerInventoryExit } from './src/sales.js'
 
 // Inicializar en DOM Ready
 document.addEventListener('DOMContentLoaded', () => {
@@ -160,7 +160,8 @@ document.addEventListener('DOMContentLoaded', () => {
           reports: 'Reportes Contables',
           users: 'Usuarios',
           credits: 'Créditos y Apartados',
-          payroll: 'Nómina y Servicios'
+          payroll: 'Nómina y Servicios',
+          audit: 'Auditoría de Movimientos'
         }
         pageTitle.textContent = titles[target] || 'Dashboard'
       }
@@ -172,6 +173,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (target === 'credits') loadCreditsTable()
       if (target === 'payroll') loadPayrollTable()
       if (target === 'users') loadUsersTable()
+      if (target === 'audit') loadAuditTable()
     })
   })
 
@@ -382,7 +384,9 @@ document.addEventListener('DOMContentLoaded', () => {
           exchangeRate: parseFloat(document.getElementById('sale-rate').value),
           paymentMethod: document.getElementById('sale-payment-method').value,
           paymentStatus: document.getElementById('sale-status').value,
-          dueDate: document.getElementById('sale-due-date').value
+          dueDate: document.getElementById('sale-due-date').value,
+          installments: parseInt(document.getElementById('credit-installments')?.value || 1),
+          paymentCycle: document.getElementById('credit-cycle')?.value || 'mensual'
         }
 
         const res = await registerSale(saleData)
@@ -402,7 +406,23 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   document.getElementById('sale-status')?.addEventListener('change', (e) => {
-    document.getElementById('due-date-container').style.display = e.target.value === 'completed' ? 'none' : 'block'
+    const status = e.target.value
+    const dateContainer = document.getElementById('due-date-container')
+    const creditContainer = document.getElementById('credit-options-container')
+    const dateLabel = document.getElementById('sale-due-date-label')
+
+    if (status === 'completed') {
+      if (dateContainer) dateContainer.style.display = 'none'
+      if (creditContainer) creditContainer.style.display = 'none'
+    } else if (status === 'pending') {
+      if (dateContainer) dateContainer.style.display = 'block'
+      if (creditContainer) creditContainer.style.display = 'grid'
+      if (dateLabel) dateLabel.textContent = 'Fecha Primer Pago'
+    } else if (status === 'partial') {
+      if (dateContainer) dateContainer.style.display = 'block'
+      if (creditContainer) creditContainer.style.display = 'none'
+      if (dateLabel) dateLabel.textContent = 'Fecha Tope (Límite)'
+    }
   })
 
   // --- Lógica de Créditos ---
@@ -690,13 +710,210 @@ document.addEventListener('DOMContentLoaded', () => {
       allProducts = await fetchProducts()
       const kpiProducts = document.getElementById('kpi-products')
       if (kpiProducts) kpiProducts.textContent = allProducts.length
+
       const summary = await getFinancialSummary()
       const incomeEl = document.getElementById('kpi-total-income')
       const expensesEl = document.getElementById('kpi-total-expenses')
       const profitEl = document.getElementById('kpi-net-profit')
+      const breakdownEl = document.getElementById('income-breakdown')
+
       if (incomeEl) incomeEl.textContent = '$' + summary.totalRevenue.toFixed(2)
       if (expensesEl) expensesEl.textContent = '$' + summary.totalExpenses.toFixed(2)
       if (profitEl) profitEl.textContent = '$' + summary.netProfit.toFixed(2)
+
+      if (breakdownEl && summary.breakdown) {
+        breakdownEl.innerHTML = Object.entries(summary.breakdown)
+          .map(([method, amount]) => `<div>${method}: $${amount.toFixed(2)}</div>`)
+          .join('')
+      }
+
+      renderFinancialCharts()
+    } catch (e) {
+      console.error(e)
+    }
+  }
+
+
+  let incomeExpenseChart = null
+  let categoryChart = null
+
+  async function renderFinancialCharts() {
+    const trans = await fetchTransactions()
+    const ctx1 = document.getElementById('chart-income-expenses')?.getContext('2d')
+    const ctx2 = document.getElementById('chart-categories')?.getContext('2d')
+
+    if (!ctx1 || !ctx2) return
+
+    // Datos simplificados para gráfico 1: Últimos 10 movimientos
+    const last10 = trans.slice(0, 10).reverse()
+    const labels = last10.map(t => new Date(t.date).toLocaleDateString())
+    const incomes = last10.map(t => t.type === 'ingreso' ? t.amount : 0)
+    const expenses = last10.map(t => t.type === 'egreso' ? t.amount : 0)
+
+    if (incomeExpenseChart) incomeExpenseChart.destroy()
+    incomeExpenseChart = new Chart(ctx1, {
+      type: 'line',
+      data: {
+        labels,
+        datasets: [
+          { label: 'Ingresos', data: incomes, borderColor: '#48bb78', backgroundColor: 'rgba(72, 187, 120, 0.1)', fill: true, tension: 0.4 },
+          { label: 'Egresos', data: expenses, borderColor: '#f56565', backgroundColor: 'rgba(245, 101, 101, 0.1)', fill: true, tension: 0.4 }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { position: 'bottom' } },
+        scales: { y: { beginAtZero: true } }
+      }
+    })
+
+    // Gráfico 2: Ingresos por método de pago
+    const summary = await getFinancialSummary()
+    const methods = Object.keys(summary.breakdown || {})
+    const amounts = Object.values(summary.breakdown || {})
+
+    if (categoryChart) categoryChart.destroy()
+    categoryChart = new Chart(ctx2, {
+      type: 'doughnut',
+      data: {
+        labels: methods,
+        datasets: [{
+          data: amounts,
+          backgroundColor: ['#4299e1', '#48bb78', '#ed8936', '#ecc94b', '#9f7aea']
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { position: 'bottom' } }
+      }
+    })
+  }
+
+  const exitModal = document.getElementById('exit-modal')
+  const exitForm = document.getElementById('exit-form')
+  const btnInventoryExit = document.getElementById('btn-inventory-exit')
+  const closeExitModal = document.getElementById('close-exit-modal')
+
+  if (btnInventoryExit) btnInventoryExit.onclick = async () => {
+    const prods = await fetchProducts()
+    const select = document.getElementById('exit-product')
+    if (select) {
+      select.innerHTML = '<option value="">Seleccione producto...</option>'
+      prods.forEach(p => {
+        const opt = document.createElement('option')
+        opt.value = p.id
+        opt.textContent = `${p.name} (Stock: ${p.stock})`
+        select.appendChild(opt)
+      })
+    }
+    if (exitModal) exitModal.style.display = 'flex'
+  }
+
+  if (closeExitModal) closeExitModal.onclick = () => exitModal.style.display = 'none'
+
+  if (exitForm) {
+    exitForm.onsubmit = async (e) => {
+      e.preventDefault()
+      const { data: { user } } = await supabase.auth.getUser()
+      const exitData = {
+        productId: document.getElementById('exit-product').value,
+        quantity: parseInt(document.getElementById('exit-quantity').value),
+        reason: document.getElementById('exit-reason').value,
+        receivedBy: document.getElementById('exit-received').value,
+        userId: user.id
+      }
+
+      const res = await registerInventoryExit(exitData)
+      if (res.success) {
+        exitModal.style.display = 'none'
+        generateExitPDF(exitData, res.productName)
+        loadProductsTable()
+        exitForm.reset()
+      } else {
+        const errEl = document.getElementById('exit-error')
+        if (errEl) errEl.textContent = res.error
+      }
+    }
+  }
+
+  function generateExitPDF(data, productName) {
+    const { jsPDF } = window.jspdf
+    const doc = jsPDF()
+    doc.setFontSize(20)
+    doc.text("D'Lux Boutique - Vale de Salida", 20, 20)
+    doc.setFontSize(12)
+    doc.text(`Fecha: ${new Date().toLocaleString()}`, 20, 35)
+    doc.text(`ID Producto: ${data.productId}`, 20, 45)
+    doc.text(`Producto: ${productName}`, 20, 55)
+    doc.text(`Cantidad: ${data.quantity}`, 20, 65)
+    doc.text(`Motivo: ${data.reason}`, 20, 75)
+    doc.text(`Retirado por: ${data.receivedBy}`, 20, 85)
+
+    doc.line(20, 110, 100, 110)
+    doc.text("Firma de Quien Retira", 20, 115)
+
+    doc.line(110, 110, 190, 110)
+    doc.text("Firma Autorizada Admin", 110, 115)
+
+    doc.save(`salida_${productName.replace(/\s+/g, '_')}.pdf`)
+  }
+
+  // --- Tasa de Cambio DolarAPI ---
+  async function syncExchangeRate() {
+    const btnSync = document.getElementById('btn-sync-rate')
+    const rateInput = document.getElementById('sale-rate')
+    if (btnSync) btnSync.style.opacity = '0.5'
+    try {
+      // Usar tasa Paralelo (USDT/Monitor) según requerimiento del usuario
+      const response = await fetch('https://ve.dolarapi.com/v1/dolares/paralelo')
+      const data = await response.json()
+      if (data && data.promedio) {
+        rateInput.value = data.promedio.toFixed(2)
+        rateInput.dispatchEvent(new Event('change'))
+      }
+    } catch (e) {
+      console.error("Error al sincronizar tasa:", e)
+      alert("No se pudo obtener la tasa USDT en tiempo real.")
+    } finally {
+      if (btnSync) btnSync.style.opacity = '1'
+    }
+  }
+
+  const btnSyncRate = document.getElementById('btn-sync-rate')
+  if (btnSyncRate) btnSyncRate.onclick = syncExchangeRate
+
+  async function loadAuditTable() {
+    const tbody = document.getElementById('audit-tbody')
+    if (!tbody) return
+    try {
+      tbody.innerHTML = '<tr><td colspan="6" style="text-align:center">Cargando auditoría...</td></tr>'
+      const trans = await fetchTransactions()
+      tbody.innerHTML = ''
+      trans.forEach(t => {
+        const tr = document.createElement('tr')
+        const isExit = t.category === 'inventario_salida'
+        tr.innerHTML = `
+          <td><small>${new Date(t.date).toLocaleString()}</small></td>
+          <td><span class="badge ${t.type === 'ingreso' ? 'badge-success' : 'badge-danger'}">${t.type.toUpperCase()}</span></td>
+          <td>${t.concept}</td>
+          <td>${isExit ? `<strong>${t.exit_reason}</strong> / ${t.received_by}` : (t.payment_method || 'N/A')}</td>
+          <td>$${t.amount.toFixed(2)}</td>
+          <td><button class="btn btn-outline btn-small delete-trans" data-id="${t.id}" style="padding: 2px 8px;">&times;</button></td>
+        `
+        tbody.appendChild(tr)
+      })
+
+      document.querySelectorAll('.delete-trans').forEach(btn => {
+        btn.onclick = async (e) => {
+          if (confirm('¿Eliminar este registro? Advertencia: Esto no revertirá el stock automáticamente.')) {
+            const transId = e.currentTarget.getAttribute('data-id')
+            await supabase.from('transactions').delete().eq('id', transId)
+            loadAuditTable()
+          }
+        }
+      })
     } catch (e) {
       console.error(e)
     }
@@ -745,6 +962,79 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('image-gallery-preview').innerHTML = ''
     productModal.style.display = 'flex'
   })
+
+  // --- Manejo del Formulario de Productos ---
+  if (productForm) {
+    productForm.onsubmit = async (e) => {
+      e.preventDefault()
+      const btn = document.getElementById('save-product-btn')
+      if (btn) btn.disabled = true
+      if (productError) productError.textContent = ''
+
+      try {
+        const id = document.getElementById('prod-id').value
+        const imageFiles = document.getElementById('prod-image').files
+
+        let imageUrls = []
+        if (imageFiles.length > 0) {
+          for (let i = 0; i < imageFiles.length; i++) {
+            const url = await uploadImageToCloudinary(imageFiles[i])
+            imageUrls.push(url)
+          }
+        }
+
+        const productData = {
+          name: document.getElementById('prod-name').value,
+          sku: document.getElementById('prod-sku').value,
+          price: parseFloat(document.getElementById('prod-price').value),
+          cost_price: parseFloat(document.getElementById('prod-cost').value),
+          stock: parseInt(document.getElementById('prod-stock').value),
+          brand: document.getElementById('prod-brand').value,
+          color: document.getElementById('prod-color').value,
+          size: document.getElementById('prod-size').value,
+          description: document.getElementById('prod-desc').value,
+          gender: document.getElementById('prod-gender').value,
+          category: document.getElementById('prod-category').value,
+          status: document.getElementById('prod-status').value
+        }
+
+        if (imageUrls.length > 0) {
+          productData.images = imageUrls
+        }
+
+        if (id) {
+          await updateProduct(id, productData)
+        } else {
+          await createProduct(productData)
+        }
+
+        productModal.style.display = 'none'
+        loadProductsTable()
+        productForm.reset()
+      } catch (err) {
+        console.error(err)
+        productError.textContent = 'Error: ' + err.message
+      } finally {
+        if (btn) btn.disabled = false
+      }
+    }
+  }
+
+  const deleteProductBtn = document.getElementById('delete-product-btn')
+  if (deleteProductBtn) {
+    deleteProductBtn.onclick = async () => {
+      const id = document.getElementById('prod-id').value
+      if (id && confirm('¿Seguro que desea eliminar este producto?')) {
+        try {
+          await deleteProduct(id)
+          productModal.style.display = 'none'
+          loadProductsTable()
+        } catch (err) {
+          productError.textContent = err.message
+        }
+      }
+    }
+  }
 
   // --- Lógica de Usuarios ---
   async function loadUsersTable() {

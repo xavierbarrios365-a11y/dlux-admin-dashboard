@@ -8,6 +8,7 @@
     <link rel="stylesheet" href="style.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 
 <body>
@@ -45,6 +46,8 @@
                                 Contables</a></li>
                         <li class="admin-only"><a href="#" data-target="payroll"><i class="icon-payroll"></i> Egresos
                                 (Gestión/Nómina)</a></li>
+                        <li class="admin-only"><a href="#" data-target="audit"><i class="icon-audit"></i> Auditoría de
+                                Movimientos</a></li>
                         <li class="admin-only"><a href="#" data-target="users"><i class="icon-users"></i> Usuarios</a>
                         </li>
                     </ul>
@@ -60,6 +63,7 @@
                     <!-- Dashboard View -->
                     <div id="view-home" class="view-section">
                         <div class="kpi-grid">
+                            <!-- KPIs Existentes -->
                             <div class="kpi-card">
                                 <h3>Inventario Total</h3>
                                 <p id="kpi-products" class="kpi-value">0</p>
@@ -67,6 +71,8 @@
                             <div class="kpi-card">
                                 <h3>Ingresos Totales</h3>
                                 <p id="kpi-total-income" class="kpi-value">$0.00</p>
+                                <div id="income-breakdown"
+                                    style="font-size: 0.75rem; color: var(--text-muted); margin-top: 5px;"></div>
                             </div>
                             <div class="kpi-card">
                                 <h3>Gastos Totales</h3>
@@ -75,6 +81,20 @@
                             <div class="kpi-card" style="border-color: #000; border-width: 2px;">
                                 <h3>Utilidad Neta</h3>
                                 <p id="kpi-net-profit" class="kpi-value">$0.00</p>
+                            </div>
+                        </div>
+
+                        <!-- Charts Section -->
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-top: 2rem;">
+                            <div class="card"
+                                style="padding: 1.5rem; background: white; border-radius: 12px; box-shadow: var(--shadow-sm);">
+                                <h3 style="margin-bottom: 1rem; font-size: 1rem;">Ingresos vs Egresos (Mensual)</h3>
+                                <canvas id="chart-income-expenses"></canvas>
+                            </div>
+                            <div class="card"
+                                style="padding: 1.5rem; background: white; border-radius: 12px; box-shadow: var(--shadow-sm);">
+                                <h3 style="margin-bottom: 1rem; font-size: 1rem;">Ventas por Categoría</h3>
+                                <canvas id="chart-categories"></canvas>
                             </div>
                         </div>
                     </div>
@@ -102,6 +122,9 @@
                                     <option value="all">Todas las Categorías</option>
                                     <!-- Categorías dinámicas -->
                                 </select>
+                                <button id="btn-inventory-exit" class="btn btn-outline" style="width: auto;">
+                                    <i class="icon-exit"></i> Salida / Retiro
+                                </button>
                                 <button id="btn-new-product" class="btn admin-only">
                                     <i class="icon-plus"></i> Nuevo Producto
                                 </button>
@@ -164,8 +187,6 @@
                                     <label style="font-size: 0.7rem; color: var(--text-muted);">Hasta:</label>
                                     <input type="date" id="report-date-end" class="filter-select">
                                 </div>
-                                <button id="btn-new-expense" class="btn btn-outline" style="width: auto;">+ Registrar
-                                    Gasto</button>
                                 <button id="btn-export-pdf" class="btn btn-primary" style="width: auto;">Exportar
                                     PDF</button>
                             </div>
@@ -249,6 +270,33 @@
                             </table>
                         </div>
                     </div>
+
+                    <!-- Audit View (Admin Only) -->
+                    <div id="view-audit" class="view-section admin-only" style="display: none;">
+                        <div class="view-header">
+                            <div>
+                                <h2>Auditoría y Correcciones</h2>
+                                <p style="font-size: 0.8rem; color: var(--text-muted);">Verifique salidas de mercancía y
+                                    corrija registros erróneos.</p>
+                            </div>
+                        </div>
+                        <div class="table-container">
+                            <table class="data-table">
+                                <thead>
+                                    <tr>
+                                        <th>Fecha</th>
+                                        <th>Tipo</th>
+                                        <th>Concepto</th>
+                                        <th>Justificación / Recibido</th>
+                                        <th>Monto</th>
+                                        <th>Acciones</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="audit-tbody"></tbody>
+                            </table>
+                        </div>
+                    </div>
+
                     <!-- Users View (Admin Only) -->
                     <div id="view-users" class="view-section admin-only" style="display: none;">
                         <div>
@@ -278,181 +326,248 @@
                 </div>
             </main>
         </div>
-    </div>
 
-    <!-- Product Modal -->
-    <div id="product-modal" class="modal" style="display: none;">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h3 id="modal-title">Gestión de Producto</h3>
-                <button id="close-modal"
-                    style="background:none; border:none; font-size:1.5rem; cursor:pointer;">&times;</button>
+        <!-- Product Modal -->
+        <div id="product-modal" class="modal" style="display: none;">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3 id="modal-title">Gestión de Producto</h3>
+                    <button id="close-modal"
+                        style="background:none; border:none; font-size:1.5rem; cursor:pointer;">&times;</button>
+                </div>
+                <form id="product-form">
+                    <input type="hidden" id="prod-id">
+                    <div style="display: flex; gap: 1rem; margin-bottom: 1rem;">
+                        <div class="input-group" style="flex: 1; margin-bottom: 0;">
+                            <label for="prod-name">Nombre del Producto</label>
+                            <input type="text" id="prod-name" required placeholder="Ej: Bolso de Cuero">
+                        </div>
+                        <div class="input-group" style="flex: 1; margin-bottom: 0;">
+                            <label for="prod-sku">Código / SKU</label>
+                            <input type="text" id="prod-sku" placeholder="Ej: BOLS-001">
+                        </div>
+                    </div>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1rem; margin-bottom: 1.25rem;">
+                        <div class="input-group" style="margin-bottom: 0;">
+                            <label for="prod-cost">Precio Costo ($)</label>
+                            <input type="number" id="prod-cost" step="0.01" required placeholder="0.00">
+                        </div>
+                        <div class="input-group" style="margin-bottom: 0;">
+                            <label for="prod-price">Precio Venta ($)</label>
+                            <input type="number" id="prod-price" step="0.01" required placeholder="0.00">
+                        </div>
+                        <div class="input-group" style="margin-bottom: 0;">
+                            <label for="prod-stock">Stock Actual</label>
+                            <input type="number" id="prod-stock" required placeholder="0">
+                        </div>
+                    </div>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1rem; margin-bottom: 1.25rem;">
+                        <div class="input-group" style="margin-bottom: 0;">
+                            <label for="prod-brand">Marca</label>
+                            <input type="text" id="prod-brand" placeholder="Ej: Zara">
+                        </div>
+                        <div class="input-group" style="margin-bottom: 0;">
+                            <label for="prod-color">Color</label>
+                            <input type="text" id="prod-color" placeholder="Ej: Rojo">
+                        </div>
+                        <div class="input-group" style="margin-bottom: 0;">
+                            <label for="prod-size">Talla / Medida</label>
+                            <input type="text" id="prod-size" placeholder="Ej: M / 38">
+                        </div>
+                    </div>
+                    <div class="input-group">
+                        <label for="prod-desc">Descripción</label>
+                        <textarea id="prod-desc" rows="3" placeholder="Detalles del producto..."></textarea>
+                    </div>
+                    <div class="input-group">
+                        <label>Imágenes (Hasta 5)</label>
+                        <div id="image-gallery-preview"
+                            style="display: flex; gap: 0.5rem; margin-bottom: 0.5rem; flex-wrap: wrap;"></div>
+                        <input type="file" id="prod-image" accept="image/*" multiple>
+                        <small style="color: var(--text-muted);">Puedes seleccionar varias imágenes.</small>
+                    </div>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1.25rem;">
+                        <div class="input-group" style="margin-bottom: 0;">
+                            <label for="prod-gender">Género / Categoría Comercial</label>
+                            <select id="prod-gender" required>
+                                <option value="Woman">Woman</option>
+                                <option value="Men">Men</option>
+                                <option value="Unisex">Unisex</option>
+                            </select>
+                        </div>
+                        <div class="input-group" style="margin-bottom: 0;">
+                            <label for="prod-category">Categoría (Tipo de Prenda)</label>
+                            <input type="text" id="prod-category" placeholder="Ej: Bolsos, Zapatos...">
+                        </div>
+                    </div>
+                    <div class="input-group">
+                        <label for="prod-status">Estado</label>
+                        <select id="prod-status" required>
+                            <option value="active">Activo</option>
+                            <option value="draft">Borrador</option>
+                            <option value="archived">Archivado</option>
+                        </select>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" id="delete-product-btn" class="btn btn-outline btn-danger">Eliminar
+                            Producto</button>
+                        <button type="submit" id="save-product-btn" class="btn">Guardar Cambios</button>
+                    </div>
+                    <div id="product-error" class="error-msg"
+                        style="color: var(--danger); margin-top: 1rem; font-size: 0.8rem;"></div>
+                </form>
             </div>
-            <form id="product-form">
-                <input type="hidden" id="prod-id">
-                <div style="display: flex; gap: 1rem; margin-bottom: 1rem;">
-                    <div class="input-group" style="flex: 1; margin-bottom: 0;">
-                        <label for="prod-name">Nombre del Producto</label>
-                        <input type="text" id="prod-name" required placeholder="Ej: Bolso de Cuero">
-                    </div>
-                    <div class="input-group" style="flex: 1; margin-bottom: 0;">
-                        <label for="prod-sku">Código / SKU</label>
-                        <input type="text" id="prod-sku" placeholder="Ej: BOLS-001">
-                    </div>
-                </div>
-                <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1rem; margin-bottom: 1.25rem;">
-                    <div class="input-group" style="margin-bottom: 0;">
-                        <label for="prod-cost">Precio Costo ($)</label>
-                        <input type="number" id="prod-cost" step="0.01" required placeholder="0.00">
-                    </div>
-                    <div class="input-group" style="margin-bottom: 0;">
-                        <label for="prod-price">Precio Venta ($)</label>
-                        <input type="number" id="prod-price" step="0.01" required placeholder="0.00">
-                    </div>
-                    <div class="input-group" style="margin-bottom: 0;">
-                        <label for="prod-stock">Stock Actual</label>
-                        <input type="number" id="prod-stock" required placeholder="0">
-                    </div>
-                </div>
-                <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1rem; margin-bottom: 1.25rem;">
-                    <div class="input-group" style="margin-bottom: 0;">
-                        <label for="prod-brand">Marca</label>
-                        <input type="text" id="prod-brand" placeholder="Ej: Zara">
-                    </div>
-                    <div class="input-group" style="margin-bottom: 0;">
-                        <label for="prod-color">Color</label>
-                        <input type="text" id="prod-color" placeholder="Ej: Rojo">
-                    </div>
-                    <div class="input-group" style="margin-bottom: 0;">
-                        <label for="prod-size">Talla / Medida</label>
-                        <input type="text" id="prod-size" placeholder="Ej: M / 38">
-                    </div>
-                </div>
-                <div class="input-group">
-                    <label for="prod-desc">Descripción</label>
-                    <textarea id="prod-desc" rows="3" placeholder="Detalles del producto..."></textarea>
-                </div>
-                <div class="input-group">
-                    <label>Imágenes (Hasta 5)</label>
-                    <div id="image-gallery-preview"
-                        style="display: flex; gap: 0.5rem; margin-bottom: 0.5rem; flex-wrap: wrap;"></div>
-                    <input type="file" id="prod-image" accept="image/*" multiple>
-                    <small style="color: var(--text-muted);">Puedes seleccionar varias imágenes.</small>
-                </div>
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1.25rem;">
-                    <div class="input-group" style="margin-bottom: 0;">
-                        <label for="prod-gender">Género / Categoría Comercial</label>
-                        <select id="prod-gender" required>
-                            <option value="Woman">Woman</option>
-                            <option value="Men">Men</option>
-                            <option value="Unisex">Unisex</option>
-                        </select>
-                    </div>
-                    <div class="input-group" style="margin-bottom: 0;">
-                        <label for="prod-category">Categoría (Tipo de Prenda)</label>
-                        <input type="text" id="prod-category" placeholder="Ej: Bolsos, Zapatos...">
-                    </div>
-                </div>
-                <div class="input-group">
-                    <label for="prod-status">Estado</label>
-                    <select id="prod-status" required>
-                        <option value="active">Activo</option>
-                        <option value="draft">Borrador</option>
-                        <option value="archived">Archivado</option>
-                    </select>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" id="delete-product-btn" class="btn btn-outline btn-danger">Eliminar
-                        Producto</button>
-                    <button type="submit" id="save-product-btn" class="btn">Guardar Cambios</button>
-                </div>
-                <div id="product-error" class="error-msg"
-                    style="color: var(--danger); margin-top: 1rem; font-size: 0.8rem;"></div>
-            </form>
         </div>
-    </div>
-    <!-- Sales Modal -->
-    <div id="sales-modal" class="modal" style="display: none;">
-        <div class="modal-content" style="width: 600px;">
-            <div class="modal-header">
-                <h3>Registrar Venta (WhatsApp Sync)</h3>
-                <button id="close-sales-modal"
-                    style="background:none; border:none; font-size:1.5rem; cursor:pointer;">&times;</button>
+        <!-- Sales Modal -->
+        <div id="sales-modal" class="modal" style="display: none;">
+            <div class="modal-content" style="width: 600px;">
+                <div class="modal-header">
+                    <h3>Registrar Venta (WhatsApp Sync)</h3>
+                    <button id="close-sales-modal"
+                        style="background:none; border:none; font-size:1.5rem; cursor:pointer;">&times;</button>
+                </div>
+                <form id="sales-form">
+                    <div class="input-group">
+                        <label for="sale-customer">Nombre del Cliente</label>
+                        <input type="text" id="sale-customer" required placeholder="Ej: Maria Perez">
+                    </div>
+
+                    <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
+                        <div class="input-group">
+                            <label for="sale-currency">Moneda</label>
+                            <select id="sale-currency">
+                                <option value="USD" selected>USD ($)</option>
+                                <option value="BS">BS (Bs.)</option>
+                            </select>
+                        </div>
+                        <div class="input-group">
+                            <label for="sale-rate">Tasa de Cambio <button type="button" id="btn-sync-rate"
+                                    title="Sincronizar BCV"
+                                    style="border:none; background:none; cursor:pointer; font-size: 0.8rem; vertical-align: middle;">🔄</button></label>
+                            <input type="number" id="sale-rate" step="0.01" placeholder="Ej: 36.50">
+                        </div>
+                        <div class="input-group">
+                            <label for="sale-payment-method">Método de Pago</label>
+                            <select id="sale-payment-method" required>
+                                <option value="Cash">Efectivo</option>
+                                <option value="Zelle">Zelle</option>
+                                <option value="Pago Movil">Pago Móvil</option>
+                                <option value="Transferencia">Transferencia</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
+                        <div class="input-group">
+                            <label for="sale-status">Tipo de Venta</label>
+                            <select id="sale-status">
+                                <option value="completed" selected>Contado (Pagado)</option>
+                                <option value="pending">Crédito (Pendiente)</option>
+                                <option value="partial">Apartado (Pago Parcial)</option>
+                            </select>
+                        </div>
+                        <div class="input-group" id="due-date-container" style="display: none;">
+                            <label for="sale-due-date" id="sale-due-date-label">Fecha Tope / Vencimiento</label>
+                            <input type="date" id="sale-due-date">
+                        </div>
+                    </div>
+
+                    <div id="credit-options-container"
+                        style="display: none; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
+                        <div class="input-group">
+                            <label for="credit-installments">Número de Cuotas</label>
+                            <select id="credit-installments">
+                                <option value="1" selected>1 Cuota (Mensualidad Única)</option>
+                                <option value="2">2 Cuotas</option>
+                                <option value="3">3 Cuotas</option>
+                                <option value="4">4 Cuotas</option>
+                                <option value="5">5 Cuotas</option>
+                                <option value="6">6 Cuotas</option>
+                            </select>
+                        </div>
+                        <div class="input-group">
+                            <label for="credit-cycle">Ciclo de Pago</label>
+                            <select id="credit-cycle">
+                                <option value="semanal">Semanal</option>
+                                <option value="quincenal" selected>Quincenal</option>
+                                <option value="mensual">Mensual</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div id="sale-items-container">
+                        <label>Productos</label>
+                        <div class="sale-item-row" style="display: flex; gap: 0.5rem; margin-bottom: 0.5rem;">
+                            <select class="sale-product-select" style="flex: 2;" required>
+                                <option value="">Seleccionar producto...</option>
+                            </select>
+                            <input type="number" class="sale-quantity" placeholder="Cant" min="1" value="1"
+                                style="flex: 1;" required>
+                            <button type="button" class="btn btn-outline btn-danger btn-small remove-item"
+                                style="width: auto;">&times;</button>
+                        </div>
+                    </div>
+                    <button type="button" id="btn-add-item" class="btn btn-outline btn-small"
+                        style="margin-top: 0.5rem; width: auto;">+ Otro producto</button>
+
+                    <div class="input-group" style="margin-top: 1.5rem;">
+                        <label for="sale-notes">Notas / Referencia WhatsApp</label>
+                        <textarea id="sale-notes" rows="2" placeholder="Opcional..."></textarea>
+                    </div>
+
+                    <div class="modal-footer" style="flex-direction: column; align-items: flex-end; gap: 0.5rem;">
+                        <h3 id="sale-total-display">Total: $0.00</h3>
+                        <p id="sale-total-bs-display"
+                            style="font-size: 0.9rem; color: var(--text-muted); font-weight: 600;">(Bs. 0.00)</p>
+                        <button type="submit" id="save-sale-btn" class="btn">Procesar Venta</button>
+                    </div>
+                    <div id="sales-error" class="error-msg" style="color: var(--danger); margin-top: 1rem;"></div>
+                </form>
             </div>
-            <form id="sales-form">
-                <div class="input-group">
-                    <label for="sale-customer">Nombre del Cliente</label>
-                    <input type="text" id="sale-customer" required placeholder="Ej: Maria Perez">
-                </div>
-
-                <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
-                    <div class="input-group">
-                        <label for="sale-currency">Moneda</label>
-                        <select id="sale-currency">
-                            <option value="USD" selected>USD ($)</option>
-                            <option value="BS">BS (Bs.)</option>
-                        </select>
-                    </div>
-                    <div class="input-group">
-                        <label for="sale-rate">Tasa de Cambio</label>
-                        <input type="number" id="sale-rate" step="0.01" placeholder="Ej: 36.50">
-                    </div>
-                    <div class="input-group">
-                        <label for="sale-payment-method">Método de Pago</label>
-                        <select id="sale-payment-method" required>
-                            <option value="Cash">Efectivo</option>
-                            <option value="Zelle">Zelle</option>
-                            <option value="Pago Movil">Pago Móvil</option>
-                            <option value="Transferencia">Transferencia</option>
-                        </select>
-                    </div>
-                </div>
-
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
-                    <div class="input-group">
-                        <label for="sale-status">Tipo de Venta</label>
-                        <select id="sale-status">
-                            <option value="completed" selected>Contado (Pagado)</option>
-                            <option value="pending">Crédito (Pendiente)</option>
-                            <option value="partial">Apartado (Pago Parcial)</option>
-                        </select>
-                    </div>
-                    <div class="input-group" id="due-date-container" style="display: none;">
-                        <label for="sale-due-date">Fecha de Vencimiento</label>
-                        <input type="date" id="sale-due-date">
-                    </div>
-                </div>
-
-                <div id="sale-items-container">
-                    <label>Productos</label>
-                    <div class="sale-item-row" style="display: flex; gap: 0.5rem; margin-bottom: 0.5rem;">
-                        <select class="sale-product-select" style="flex: 2;" required>
-                            <option value="">Seleccionar producto...</option>
-                        </select>
-                        <input type="number" class="sale-quantity" placeholder="Cant" min="1" value="1" style="flex: 1;"
-                            required>
-                        <button type="button" class="btn btn-outline btn-danger btn-small remove-item"
-                            style="width: auto;">&times;</button>
-                    </div>
-                </div>
-                <button type="button" id="btn-add-item" class="btn btn-outline btn-small"
-                    style="margin-top: 0.5rem; width: auto;">+ Otro producto</button>
-
-                <div class="input-group" style="margin-top: 1.5rem;">
-                    <label for="sale-notes">Notas / Referencia WhatsApp</label>
-                    <textarea id="sale-notes" rows="2" placeholder="Opcional..."></textarea>
-                </div>
-
-                <div class="modal-footer" style="flex-direction: column; align-items: flex-end; gap: 0.5rem;">
-                    <h3 id="sale-total-display">Total: $0.00</h3>
-                    <p id="sale-total-bs-display"
-                        style="font-size: 0.9rem; color: var(--text-muted); font-weight: 600;">(Bs. 0.00)</p>
-                    <button type="submit" id="save-sale-btn" class="btn">Procesar Venta</button>
-                </div>
-                <div id="sales-error" class="error-msg" style="color: var(--danger); margin-top: 1rem;"></div>
-            </form>
         </div>
-    </div>
+
+        <!-- Exit/Withdrawal Modal -->
+        <div id="exit-modal" class="modal" style="display: none;">
+            <div class="modal-content" style="width: 450px;">
+                <div class="modal-header">
+                    <h3>Registrar Salida / Retiro de Mercancía</h3>
+                    <button id="close-exit-modal"
+                        style="background:none; border:none; font-size:1.5rem; cursor:pointer;">&times;</button>
+                </div>
+                <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 1rem;">Use este formulario para
+                    mercancía que sale de la tienda sin ser una venta (regalos, retiros personales, etc).</p>
+                <form id="exit-form">
+                    <div class="input-group">
+                        <label for="exit-product">Producto</label>
+                        <select id="exit-product" required>
+                            <option value="">Seleccione un producto...</option>
+                        </select>
+                    </div>
+                    <div class="input-group">
+                        <label for="exit-quantity">Cantidad a Retirar</label>
+                        <input type="number" id="exit-quantity" min="1" required placeholder="1">
+                    </div>
+                    <div class="input-group">
+                        <label for="exit-reason">Motivo del Retiro</label>
+                        <select id="exit-reason" required>
+                            <option value="Regalo">Regalo / Obsequio</option>
+                            <option value="Retiro Dueño">Retiro de Dueño</option>
+                            <option value="Merma">Merma / Daño</option>
+                            <option value="Uso Interno">Uso Interno</option>
+                            <option value="Correccion">Corrección de Inventario</option>
+                        </select>
+                    </div>
+                    <div class="input-group">
+                        <label for="exit-received">Quién Recibe / Retira</label>
+                        <input type="text" id="exit-received" required placeholder="Nombre de la persona">
+                    </div>
+                    <div class="modal-footer">
+                        <button type="submit" class="btn">Confirmar Salida y Generar Vale</button>
+                    </div>
+                    <div id="exit-error" class="error-msg" style="color: var(--danger); margin-top: 1rem;"></div>
+                </form>
+            </div>
+        </div>
 
     </div>
 
