@@ -3,244 +3,226 @@ import { supabase } from './src/supabase.js'
 import { fetchProducts, createProduct, updateProduct, deleteProduct, uploadImageToCloudinary } from './src/inventory.js'
 import { fetchOrders, updateOrderStatus, deleteOrder } from './src/orders.js'
 
-const loginContainer = document.getElementById('login-container')
-const dashboardContainer = document.getElementById('dashboard-container')
-const loginForm = document.getElementById('login-form')
-const logoutBtn = document.getElementById('logout-btn')
-const loginError = document.getElementById('login-error')
-const appContainer = document.getElementById('app')
+import './style.css'
+import { supabase } from './src/supabase.js'
+import { fetchProducts, createProduct, updateProduct, deleteProduct, uploadImageToCloudinary } from './src/inventory.js'
+import { fetchOrders, updateOrderStatus, deleteOrder } from './src/orders.js'
 
-// Navigation Elements
-const navLinks = document.querySelectorAll('.sidebar a')
-const pageTitle = document.getElementById('page-title')
+// Initialize on DOM Ready to avoid null errors
+document.addEventListener('DOMContentLoaded', () => {
+  const loginContainer = document.getElementById('login-container')
+  const dashboardContainer = document.getElementById('dashboard-container')
+  const loginForm = document.getElementById('login-form')
+  const logoutBtn = document.getElementById('logout-btn')
+  const loginError = document.getElementById('login-error')
+  const appContainer = document.getElementById('app')
 
-// View Elements
-const viewHome = document.getElementById('view-home')
-const viewInventory = document.getElementById('view-inventory')
-const viewOrders = document.getElementById('view-orders')
+  // Navigation Elements
+  const navLinks = document.querySelectorAll('.sidebar a')
+  const pageTitle = document.getElementById('page-title')
 
-// Modal Elements
-const productModal = document.getElementById('product-modal')
-const btnNewProduct = document.getElementById('btn-new-product')
-const btnSyncSheets = document.getElementById('btn-sync-sheets')
-const closeModalBtn = document.getElementById('close-modal')
-const productForm = document.getElementById('product-form')
-const productError = document.getElementById('product-error')
-const saveProductBtn = document.getElementById('save-product-btn')
-const productsTbody = document.getElementById('products-tbody')
-const ordersTbody = document.getElementById('orders-tbody')
+  // View Elements
+  const viewHome = document.getElementById('view-home')
+  const viewInventory = document.getElementById('view-inventory')
+  const viewOrders = document.getElementById('view-orders')
 
-// Check active session on load
-async function checkSession() {
-  const { data: { session } } = await supabase.auth.getSession()
+  // Modal Elements
+  const productModal = document.getElementById('product-modal')
+  const btnNewProduct = document.getElementById('btn-new-product')
+  const closeModalBtn = document.getElementById('close-modal')
+  const productForm = document.getElementById('product-form')
+  const productError = document.getElementById('product-error')
+  const saveProductBtn = document.getElementById('save-product-btn')
+  const productsTbody = document.getElementById('products-tbody')
+  const ordersTbody = document.getElementById('orders-tbody')
 
-  if (session) {
-    showDashboard(session.user)
-  } else {
-    showLogin()
-  }
+  // Check active session on load
+  async function checkSession() {
+    const { data: { session } } = await supabase.auth.getSession()
 
-  // Listen for auth changes
-  supabase.auth.onAuthStateChange((_event, session) => {
     if (session) {
       showDashboard(session.user)
     } else {
       showLogin()
     }
-  })
-}
 
-// UI State Management
-function showDashboard(user) {
-  loginContainer.style.display = 'none'
-  dashboardContainer.style.display = 'flex'
-  appContainer.style.alignItems = 'flex-start'
-  appContainer.style.justifyContent = 'flex-start'
-
-  const userProfile = document.querySelector('.user-profile')
-  if (userProfile && user.email) {
-    userProfile.textContent = user.email
+    // Listen for auth changes
+    supabase.auth.onAuthStateChange((_event, session) => {
+      if (session) {
+        showDashboard(session.user)
+      } else {
+        showLogin()
+      }
+    })
   }
-}
 
-function showLogin() {
-  dashboardContainer.style.display = 'none'
-  loginContainer.style.display = 'block'
-  appContainer.style.alignItems = 'center'
-  appContainer.style.justifyContent = 'center'
-}
-
-// Login Handler
-loginForm.addEventListener('submit', async (e) => {
-  e.preventDefault()
-  loginError.textContent = ''
-
-  const email = document.getElementById('email').value
-  const password = document.getElementById('password').value
-  const btn = loginForm.querySelector('button')
-  btn.textContent = 'Logging in...'
-  btn.disabled = true
-
-  const { error } = await supabase.auth.signInWithPassword({
-    email,
-    password
-  })
-
-  if (error) {
-    loginError.textContent = error.message
-    btn.textContent = 'Login'
-    btn.disabled = false
-  } else {
-    btn.textContent = 'Login'
-    btn.disabled = false
-  }
-})
-
-// Logout Handler
-logoutBtn.addEventListener('click', async () => {
-  await supabase.auth.signOut()
-})
-
-// Tab Navigation logic
-navLinks.forEach(link => {
-  link.addEventListener('click', (e) => {
-    e.preventDefault();
-    navLinks.forEach(l => l.classList.remove('active'));
-    link.classList.add('active');
-
-    const target = link.getAttribute('data-target');
-
-    // Hide all views
-    viewHome.style.display = 'none';
-    viewInventory.style.display = 'none';
-    viewOrders.style.display = 'none';
-
-    if (target === 'home') {
-      pageTitle.textContent = 'Dashboard';
-      viewHome.style.display = 'block';
-      loadKpis();
-    } else if (target === 'inventory') {
-      pageTitle.textContent = 'Inventario';
-      viewInventory.style.display = 'block';
-      loadProductsTable();
-    } else if (target === 'orders') {
-      pageTitle.textContent = 'Pedidos';
-      viewOrders.style.display = 'block';
-      loadOrdersTable();
+  // UI State Management
+  function showDashboard(user) {
+    if (loginContainer) loginContainer.style.display = 'none'
+    if (dashboardContainer) dashboardContainer.style.display = 'flex'
+    if (appContainer) {
+      appContainer.style.alignItems = 'flex-start'
+      appContainer.style.justifyContent = 'flex-start'
     }
+
+    const userProfile = document.querySelector('.user-profile')
+    if (userProfile && user.email) {
+      userProfile.textContent = user.email
+    }
+  }
+
+  function showLogin() {
+    if (dashboardContainer) dashboardContainer.style.display = 'none'
+    if (loginContainer) loginContainer.style.display = 'block'
+    if (appContainer) {
+      appContainer.style.alignItems = 'center'
+      appContainer.style.justifyContent = 'center'
+    }
+  }
+
+  // Login Handler
+  if (loginForm) {
+    loginForm.addEventListener('submit', async (e) => {
+      e.preventDefault()
+      if (loginError) loginError.textContent = ''
+
+      const email = document.getElementById('email').value
+      const password = document.getElementById('password').value
+      const btn = loginForm.querySelector('button')
+      const originalText = btn.textContent
+      btn.textContent = 'Iniciando sesión...'
+      btn.disabled = true
+
+      try {
+        const { error } = await supabase.auth.signInWithPassword({
+          email,
+          password
+        })
+
+        if (error) {
+          if (loginError) loginError.textContent = error.message
+        }
+      } catch (err) {
+        if (loginError) loginError.textContent = 'Error de conexión'
+      } finally {
+        btn.textContent = originalText
+        btn.disabled = false
+      }
+    })
+  }
+
+  // Logout Handler
+  if (logoutBtn) {
+    logoutBtn.addEventListener('click', async () => {
+      await supabase.auth.signOut()
+    })
+  }
+
+  // Tab Navigation logic
+  navLinks.forEach(link => {
+    link.addEventListener('click', (e) => {
+      e.preventDefault();
+      navLinks.forEach(l => l.classList.remove('active'));
+      link.classList.add('active');
+
+      const target = link.getAttribute('data-target');
+
+      // Hide all views
+      if (viewHome) viewHome.style.display = 'none';
+      if (viewInventory) viewInventory.style.display = 'none';
+      if (viewOrders) viewOrders.style.display = 'none';
+
+      if (target === 'home') {
+        if (pageTitle) pageTitle.textContent = 'Dashboard';
+        if (viewHome) viewHome.style.display = 'block';
+        loadKpis();
+      } else if (target === 'inventory') {
+        if (pageTitle) pageTitle.textContent = 'Inventario';
+        if (viewInventory) viewInventory.style.display = 'block';
+        loadProductsTable();
+      } else if (target === 'orders') {
+        if (pageTitle) pageTitle.textContent = 'Pedidos';
+        if (viewOrders) viewOrders.style.display = 'block';
+        loadOrdersTable();
+      }
+    });
   });
-});
 
-// Gallery Preview Logic
-const imageGalleryPreview = document.getElementById('image-gallery-preview');
-const prodImageInput = document.getElementById('prod-image');
+  // Gallery Preview Logic
+  const imageGalleryPreview = document.getElementById('image-gallery-preview');
+  const prodImageInput = document.getElementById('prod-image');
 
-prodImageInput.addEventListener('change', (e) => {
-  imageGalleryPreview.innerHTML = '';
-  const files = Array.from(e.target.files).slice(0, 5);
-  files.forEach(file => {
-    const reader = new FileReader();
-    reader.onload = (rev) => {
-      const img = document.createElement('img');
-      img.src = rev.target.result;
-      img.style.width = '60px';
-      img.style.height = '60px';
-      img.style.objectFit = 'cover';
-      img.style.borderRadius = '4px';
-      img.style.border = '1px solid var(--border-clean)';
-      imageGalleryPreview.appendChild(img);
-    };
-    reader.readAsDataURL(file);
-  });
-});
-
-// Modal Logic
-btnNewProduct.addEventListener('click', () => {
-  productForm.reset();
-  document.getElementById('prod-id').value = '';
-  document.getElementById('modal-title').textContent = 'Nuevo Producto';
-  document.getElementById('delete-product-btn').style.display = 'none';
-  imageGalleryPreview.innerHTML = '';
-  productModal.style.display = 'flex';
-});
-
-closeModalBtn.addEventListener('click', () => {
-  productModal.style.display = 'none';
-  productForm.reset();
-  productError.textContent = '';
-});
-
-// Sync from Sheets Logic
-btnSyncSheets.addEventListener('click', async () => {
-  if (!confirm('This will fetch all items from Google Sheets and add them to Supabase. Continue?')) return;
-
-  btnSyncSheets.textContent = 'Syncing...';
-  btnSyncSheets.disabled = true;
-
-  try {
-    const response = await fetch('https://script.google.com/macros/s/AKfycbyTaPDwM3geTMyA76jaZSeaf1tC7RPRBfUbhPipwWJWktjfzYQH3C38FAfY3DbCXQpt/exec');
-    const data = await response.json();
-
-    if (data.status === 'success' && data.catalog && data.catalog.length > 0) {
-      const productsToInsert = data.catalog.map(item => ({
-        name: item.NOMBRE_PRENDA || 'Unnamed',
-        sku: String(item.SKU || ''),
-        category: item.CATEGORIA || '',
-        brand: item.MARCA || '',
-        line: item.LINEA || '',
-        sizes: item.TALLES || '',
-        colors: item.COLORES || '',
-        description: '',
-        price: parseFloat(item.PRECIO_VENTA) || 0,
-        cost_price: parseFloat(item.COSTO_COMPRA) || 0,
-        stock: parseInt(item.STOCK_FISICO, 10) || 0,
-        status: String(item.ESTADO).toLowerCase() === 'activo' ? 'active' : 'draft',
-        image_url: item.FOTOGRAFIA || ''
-      }));
-
-      // Insert all into Supabase
-      const { error } = await supabase.from('products').insert(productsToInsert);
-      if (error) throw error;
-
-      alert(`Success! Imported ${productsToInsert.length} products.`);
-      loadProductsTable();
-    } else {
-      alert('No data found in Google Sheets.');
-    }
-  } catch (err) {
-    console.error(err);
-    alert('Error syncing: ' + err.message);
-  } finally {
-    btnSyncSheets.innerHTML = '&#8635; Sync from Sheets';
-    btnSyncSheets.disabled = false;
+  if (prodImageInput && imageGalleryPreview) {
+    prodImageInput.addEventListener('change', (e) => {
+      imageGalleryPreview.innerHTML = '';
+      const files = Array.from(e.target.files).slice(0, 5);
+      files.forEach(file => {
+        const reader = new FileReader();
+        reader.onload = (rev) => {
+          const img = document.createElement('img');
+          img.src = rev.target.result;
+          img.style.width = '60px';
+          img.style.height = '60px';
+          img.style.objectFit = 'cover';
+          img.style.borderRadius = '4px';
+          img.style.border = '1px solid var(--border-clean)';
+          imageGalleryPreview.appendChild(img);
+        };
+        reader.readAsDataURL(file);
+      });
+    });
   }
-});
 
-// Load Products
-async function loadProductsTable() {
-  productsTbody.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 2rem;">Cargando inventario...</td></tr>';
-  try {
-    const products = await fetchProducts();
-    document.getElementById('kpi-products').textContent = products.length;
+  // Modal Logic
+  if (btnNewProduct) {
+    btnNewProduct.addEventListener('click', () => {
+      if (productForm) productForm.reset();
+      const prodId = document.getElementById('prod-id');
+      if (prodId) prodId.value = '';
+      const modalTitle = document.getElementById('modal-title');
+      if (modalTitle) modalTitle.textContent = 'Nuevo Producto';
+      const deleteBtn = document.getElementById('delete-product-btn');
+      if (deleteBtn) deleteBtn.style.display = 'none';
+      if (imageGalleryPreview) imageGalleryPreview.innerHTML = '';
+      if (productModal) productModal.style.display = 'flex';
+    });
+  }
 
-    if (products.length === 0) {
-      productsTbody.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 2rem;">No hay productos en el inventario.</td></tr>';
-      return;
-    }
+  if (closeModalBtn) {
+    closeModalBtn.addEventListener('click', () => {
+      if (productModal) productModal.style.display = 'none';
+      if (productForm) productForm.reset();
+      if (productError) productError.textContent = '';
+    });
+  }
 
-    productsTbody.innerHTML = '';
-    products.forEach(p => {
-      const tr = document.createElement('tr');
+  // Load Products
+  async function loadProductsTable() {
+    if (!productsTbody) return;
+    productsTbody.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 2rem;">Cargando inventario...</td></tr>';
+    try {
+      const products = await fetchProducts();
+      const kpiProducts = document.getElementById('kpi-products');
+      if (kpiProducts) kpiProducts.textContent = products.length;
 
-      // Determine image (handle gallery or single url)
-      let mainImg = '/vite.svg';
-      if (p.images && p.images.length > 0) mainImg = p.images[0];
-      else if (p.image_url) mainImg = p.image_url;
+      if (products.length === 0) {
+        productsTbody.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 2rem;">No hay productos en el inventario.</td></tr>';
+        return;
+      }
 
-      const stockClass = p.stock <= 0 ? 'badge-danger' : (p.stock <= 5 ? 'badge-warning' : 'badge-success');
-      const stockText = p.stock <= 0 ? 'Agotado' : (p.stock <= 5 ? 'Bajo Stock' : 'Disponible');
+      productsTbody.innerHTML = '';
+      products.forEach(p => {
+        const tr = document.createElement('tr');
 
-      tr.innerHTML = `
+        // Determine image (handle gallery or single url)
+        let mainImg = '/vite.svg';
+        if (p.images && p.images.length > 0) mainImg = p.images[0];
+        else if (p.image_url) mainImg = p.image_url;
+
+        const stockClass = p.stock <= 0 ? 'badge-danger' : (p.stock <= 5 ? 'badge-warning' : 'badge-success');
+        const stockText = p.stock <= 0 ? 'Agotado' : (p.stock <= 5 ? 'Bajo Stock' : 'Disponible');
+
+        tr.innerHTML = `
         <td><img src="${mainImg}" class="product-img-thumb" onerror="this.src='/vite.svg'"></td>
         <td>
           <div style="font-weight:700">${p.name}</div>
@@ -253,336 +235,305 @@ async function loadProductsTable() {
           <button class="btn btn-outline btn-small edit-btn" data-id="${p.id}">Editar</button>
         </td>
       `;
-      productsTbody.appendChild(tr);
-    });
-
-    // Attach edit handlers
-    document.querySelectorAll('.edit-btn').forEach(btn => {
-      btn.addEventListener('click', (e) => {
-        const id = e.target.getAttribute('data-id');
-        const product = products.find(p => String(p.id) === String(id));
-        if (product) openEditModal(product);
+        productsTbody.appendChild(tr);
       });
-    });
 
-  } catch (error) {
-    productsTbody.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 2rem; color: var(--danger);">Error al cargar productos. Por favor intente de nuevo.</td></tr>';
-    console.error(error);
+      // Attach edit handlers
+      document.querySelectorAll('.edit-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          const id = e.target.getAttribute('data-id');
+          const product = products.find(p => String(p.id) === String(id));
+          if (product) openEditModal(product);
+        });
+      });
+
+    } catch (error) {
+      productsTbody.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 2rem; color: var(--danger);">Error al cargar productos. Por favor intente de nuevo.</td></tr>';
+      console.error(error);
+    }
   }
-}
 
-function openEditModal(p) {
-  productForm.reset();
-  document.getElementById('prod-id').value = p.id;
-  document.getElementById('prod-name').value = p.name;
-  document.getElementById('prod-price').value = p.price;
-  document.getElementById('prod-stock').value = p.stock;
-  document.getElementById('prod-desc').value = p.description || '';
-  document.getElementById('prod-status').value = p.status || 'active';
+  function openEditModal(p) {
+    if (productForm) productForm.reset();
+    const prodId = document.getElementById('prod-id');
+    if (prodId) prodId.value = p.id;
+    const prodName = document.getElementById('prod-name');
+    if (prodName) prodName.value = p.name;
+    const prodPrice = document.getElementById('prod-price');
+    if (prodPrice) prodPrice.value = p.price;
+    const prodStock = document.getElementById('prod-stock');
+    if (prodStock) prodStock.value = p.stock;
+    const prodDesc = document.getElementById('prod-desc');
+    if (prodDesc) prodDesc.value = p.description || '';
+    const prodStatus = document.getElementById('prod-status');
+    if (prodStatus) prodStatus.value = p.status || 'active';
 
-  document.getElementById('modal-title').textContent = 'Editar Producto';
-  document.getElementById('delete-product-btn').style.display = 'block';
+    const modalTitle = document.getElementById('modal-title');
+    if (modalTitle) modalTitle.textContent = 'Editar Producto';
+    const deleteBtn = document.getElementById('delete-product-btn');
+    if (deleteBtn) deleteBtn.style.display = 'block';
 
-  // Show images
-  imageGalleryPreview.innerHTML = '';
-  const currentImages = p.images || (p.image_url ? [p.image_url] : []);
-  currentImages.forEach(url => {
-    const img = document.createElement('img');
-    img.src = url;
-    img.style.width = '60px'; img.style.height = '60px';
-    img.style.objectFit = 'cover'; img.style.borderRadius = '4px';
-    img.style.border = '1px solid var(--border-clean)';
-    imageGalleryPreview.appendChild(img);
-  });
-
-  productModal.style.display = 'flex';
-}
-
-// Load Orders
-async function loadOrdersTable() {
-  if (!ordersTbody) return;
-  ordersTbody.innerHTML = '<tr><td colspan="6" style="text-align: center;">Loading Orders...</td></tr>';
-  try {
-    const orders = await fetchOrders();
-    document.getElementById('kpi-orders').textContent = orders.filter(o => o.status === 'pending').length;
-
-    if (orders.length === 0) {
-      ordersTbody.innerHTML = '<tr><td colspan="6" style="text-align: center;">No orders found.</td></tr>';
-      return;
+    // Show images
+    if (imageGalleryPreview) {
+      imageGalleryPreview.innerHTML = '';
+      const currentImages = p.images || (p.image_url ? [p.image_url] : []);
+      currentImages.forEach(url => {
+        const img = document.createElement('img');
+        img.src = url;
+        img.style.width = '60px'; img.style.height = '60px';
+        img.style.objectFit = 'cover'; img.style.borderRadius = '4px';
+        img.style.border = '1px solid var(--border-clean)';
+        imageGalleryPreview.appendChild(img);
+      });
     }
 
-    ordersTbody.innerHTML = '';
-    orders.forEach(o => {
-      const tr = document.createElement('tr');
-      const date = new Date(o.created_at).toLocaleDateString();
-      const statusColors = {
-        pending: '#eab308',
-        paid: '#3b82f6',
-        shipped: '#a855f7',
-        delivered: '#22c55e',
-        cancelled: '#ef4444'
-      };
-      const badgeColor = statusColors[o.status] || '#999';
+    if (productModal) productModal.style.display = 'flex';
+  }
 
-      tr.innerHTML = `
+  // Load Orders
+  async function loadOrdersTable() {
+    if (!ordersTbody) return;
+    ordersTbody.innerHTML = '<tr><td colspan="6" style="text-align: center;">Cargando pedidos...</td></tr>';
+    try {
+      const orders = await fetchOrders();
+      const kpiOrders = document.getElementById('kpi-orders');
+      if (kpiOrders) kpiOrders.textContent = orders.filter(o => o.status === 'pending').length;
+
+      if (orders.length === 0) {
+        ordersTbody.innerHTML = '<tr><td colspan="6" style="text-align: center;">No se encontraron pedidos.</td></tr>';
+        return;
+      }
+
+      ordersTbody.innerHTML = '';
+      orders.forEach(o => {
+        const tr = document.createElement('tr');
+        const date = new Date(o.created_at).toLocaleDateString();
+        const statusColors = {
+          pending: '#eab308',
+          paid: '#3b82f6',
+          shipped: '#a855f7',
+          delivered: '#22c55e',
+          cancelled: '#ef4444'
+        };
+        const badgeColor = statusColors[o.status] || '#999';
+
+        tr.innerHTML = `
         <td>${date}<br><small style="color:var(--text-muted)">${o.order_number}</small></td>
         <td><strong>${o.customer_name}</strong><br><small style="color:var(--text-muted)">ID: ${o.customer_doc}</small></td>
         <td>${o.items ? o.items.length : 0} items</td>
         <td>$${Number(o.total).toFixed(2)}</td>
         <td><span style="background:${badgeColor}; color: white; padding: 4px 8px; border-radius: 4px; font-size: 10px; text-transform:uppercase; font-weight: bold;">${o.status}</span></td>
         <td>
-          <select class="status-select btn-outline" data-id="${o.id}" style="padding: 4px; border-radius: 4px; font-size: 11px; background: transparent; color: white; border: 1px solid var(--border-color); outline:none;">
-             <option value="" disabled selected>Update...</option>
-             <option value="pending" style="color:black">Pending</option>
-             <option value="paid" style="color:black">Paid</option>
-             <option value="shipped" style="color:black">Shipped</option>
-             <option value="delivered" style="color:black">Delivered</option>
-             <option value="cancelled" style="color:black">Cancelled</option>
+          <select class="status-select btn-outline" data-id="${o.id}" style="padding: 4px; border-radius: 4px; font-size: 11px; background: transparent; color: var(--text-main); border: 1px solid var(--border-clean); outline:none;">
+             <option value="" disabled selected>Actualizar...</option>
+             <option value="pending">Pediente</option>
+             <option value="paid">Pagado</option>
+             <option value="shipped">Enviado</option>
+             <option value="delivered">Entregado</option>
+             <option value="cancelled">Cancelado</option>
           </select>
-          <button class="btn btn-outline btn-small print-btn" data-id="${o.id}" style="color: white; border-color: white; margin-left: 4px; padding: 4px;">PDF</button>
-          <button class="btn btn-outline btn-small delete-order" data-id="${o.id}" style="color: var(--danger); border-color: var(--danger); margin-left: 4px; padding: 4px;">Del</button>
+          <button class="btn btn-outline btn-small print-btn" data-id="${o.id}" style="margin-left: 4px; padding: 4px; width:auto">PDF</button>
+          <button class="btn btn-outline btn-small delete-order" data-id="${o.id}" style="color: var(--danger); border-color: var(--danger); margin-left: 4px; padding: 4px; width:auto">Eliminar</button>
         </td>
       `;
-      ordersTbody.appendChild(tr);
-    });
-
-    // Attach Status Update handlers
-    document.querySelectorAll('.status-select').forEach(sel => {
-      sel.addEventListener('change', async (e) => {
-        const id = e.target.getAttribute('data-id');
-        const newStatus = e.target.value;
-        await updateOrderStatus(id, newStatus);
-        loadOrdersTable();
+        ordersTbody.appendChild(tr);
       });
-    });
 
-    // Attach Delete handlers
-    document.querySelectorAll('.delete-order').forEach(btn => {
-      btn.addEventListener('click', async (e) => {
-        if (confirm('Delete this order forever?')) {
+      // Attach Status Update handlers
+      document.querySelectorAll('.status-select').forEach(sel => {
+        sel.addEventListener('change', async (e) => {
           const id = e.target.getAttribute('data-id');
-          await deleteOrder(id);
+          const newStatus = e.target.value;
+          await updateOrderStatus(id, newStatus);
           loadOrdersTable();
-        }
+        });
       });
-    });
 
-    // Attach Print/PDF handlers
-    document.querySelectorAll('.print-btn').forEach(btn => {
-      btn.addEventListener('click', (e) => {
-        const id = e.target.getAttribute('data-id');
-        const order = orders.find(o => String(o.id) === String(id));
-        if (order) generateReceiptPDF(order);
+      // Attach Delete handlers
+      document.querySelectorAll('.delete-order').forEach(btn => {
+        btn.addEventListener('click', async (e) => {
+          if (confirm('¿Eliminar este pedido permanentemente?')) {
+            const id = e.target.getAttribute('data-id');
+            await deleteOrder(id);
+            loadOrdersTable();
+          }
+        });
       });
-    });
 
-  } catch (error) {
-    ordersTbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: var(--danger);">Error loading orders. Table may not exist yet.</td></tr>';
-    console.error(error);
-  }
-}
+      // Attach Print/PDF handlers
+      document.querySelectorAll('.print-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          const id = e.target.getAttribute('data-id');
+          const order = orders.find(o => String(o.id) === String(id));
+          if (order) generateReceiptPDF(order);
+        });
+      });
 
-// Load KPIs for Home
-async function loadKpis() {
-  try {
-    const products = await fetchProducts();
-    document.getElementById('kpi-products').textContent = products.length;
-
-    const orders = await fetchOrders();
-    document.getElementById('kpi-sales').textContent = orders.length;
-
-    const pendingOrders = orders.filter(o => o.status === 'pending');
-    document.getElementById('kpi-orders').textContent = pendingOrders.length;
-
-    // Calculate total revenue (only paid/shipped/delivered)
-    const validStatuses = ['paid', 'shipped', 'delivered'];
-    const revenue = orders
-      .filter(o => validStatuses.includes(o.status))
-      .reduce((sum, o) => sum + Number(o.total || 0), 0);
-
-    document.getElementById('kpi-revenue').textContent = '$' + revenue.toFixed(2);
-  } catch (e) { console.error('Error loading KPIs', e); }
-}
-
-// PDF Generation
-function generateReceiptPDF(order) {
-  const { jsPDF } = window.jspdf;
-  const doc = new jsPDF();
-
-  const GOLD = [212, 175, 55];
-  const OBSIDIAN = [5, 5, 5];
-
-  // Header Background
-  doc.setFillColor(...OBSIDIAN);
-  doc.rect(0, 0, 210, 60, 'F');
-
-  // Brand Name
-  doc.setTextColor(...GOLD);
-  doc.setFont("times", "bold");
-  doc.setFontSize(28);
-  doc.text("D'LUX BOUTIQUE", 105, 30, { align: "center" });
-
-  doc.setTextColor(255, 255, 255);
-  doc.setFont("helvetica", "normal");
-  doc.setFontSize(10);
-  doc.text("RECIBO DE COMPRA EXCLUSIVO", 105, 45, { align: "center" });
-  doc.text(`ORDEN #${order.order_number}`, 105, 52, { align: "center" });
-
-  // Body
-  doc.setTextColor(0, 0, 0);
-  doc.setFontSize(12);
-
-  doc.setFont("helvetica", "bold");
-  doc.text(" DETALLES DEL CLIENTE", 14, 80);
-  doc.setDrawColor(...GOLD);
-  doc.line(14, 82, 196, 82);
-
-  doc.setFont("helvetica", "normal");
-  doc.setFontSize(10);
-  doc.text(`CLIENTE: ${order.customer_name.toUpperCase()}`, 14, 90);
-  doc.text(`IDENTIFICACIÓN: ${order.customer_doc}`, 14, 96);
-  doc.text(`MÉTODO DE PAGO: ${order.payment_method}`, 14, 102);
-  doc.text(`ENTREGA: ${order.delivery_mode}`, 14, 108);
-  doc.text(`FECHA: ${new Date(order.created_at).toLocaleDateString()}`, 14, 114);
-
-  // Items Table
-  const tableColumn = ["Descripción", "Cant", "Precio Unit.", "Subtotal"];
-  const tableRows = [];
-
-  let fallbackTotal = 0;
-  if (Array.isArray(order.items)) {
-    order.items.forEach(item => {
-      const lineTotal = (item.q * item.p).toFixed(2);
-      fallbackTotal += (item.q * item.p);
-      tableRows.push([
-        item.n,
-        item.q.toString(),
-        "$" + item.p.toFixed(2),
-        "$" + lineTotal
-      ]);
-    });
-  }
-
-  doc.autoTable({
-    startY: 125,
-    head: [tableColumn],
-    body: tableRows,
-    theme: 'striped',
-    headStyles: {
-      fillColor: OBSIDIAN,
-      textColor: GOLD,
-      fontSize: 10,
-      fontStyle: 'bold'
-    },
-    bodyStyles: { fontSize: 9 },
-    alternateRowStyles: { fillColor: [250, 250, 250] }
-  });
-
-  const finalY = doc.lastAutoTable.finalY + 15;
-
-  // Total Section
-  doc.setDrawColor(...GOLD);
-  doc.setLineWidth(0.5);
-  doc.line(130, finalY - 5, 196, finalY - 5);
-
-  doc.setFont("times", "bolditalic");
-  doc.setFontSize(16);
-  const totalAmount = order.total ? Number(order.total) : fallbackTotal;
-  doc.text(`TOTAL A PAGAR: $${totalAmount.toFixed(2)}`, 196, finalY, { align: "right" });
-
-  // Footer
-  doc.setFont("helvetica", "italic");
-  doc.setFontSize(8);
-  doc.setTextColor(150, 150, 150);
-  doc.text("Gracias por elegir la exclusividad. D'Lux Boutique.", 105, 280, { align: "center" });
-
-  doc.save(`DLUX_RECIBO_${order.order_number}.pdf`);
-}
-
-// Create/Update Product Form Submission
-productForm.addEventListener('submit', async (e) => {
-  e.preventDefault();
-  productError.textContent = '';
-
-  const id = document.getElementById('prod-id').value;
-  saveProductBtn.textContent = 'Procesando...';
-  saveProductBtn.disabled = true;
-
-  try {
-    const name = document.getElementById('prod-name').value;
-    const price = parseFloat(document.getElementById('prod-price').value);
-    const stock = parseInt(document.getElementById('prod-stock').value, 10);
-    const description = document.getElementById('prod-desc').value;
-    const status = document.getElementById('prod-status').value;
-    const fileInput = document.getElementById('prod-image');
-
-    let images = [];
-
-    // If editing, start with current images if no new ones are uploaded? 
-    // Simplified: If new files uploaded, they replace or add. Let's do "replace" for now to keep it clean, or "append".
-    // For a serious tool: If files uploaded, we upload them.
-    if (fileInput.files.length > 0) {
-      saveProductBtn.textContent = 'Subiendo Imágenes...';
-      const files = Array.from(fileInput.files).slice(0, 5);
-      for (const file of files) {
-        const url = await uploadImageToCloudinary(file);
-        images.push(url);
-      }
-    }
-
-    const productData = {
-      name,
-      price,
-      stock,
-      description,
-      status
-    };
-
-    if (images.length > 0) {
-      productData.images = images; // Update images if new ones selected
-    }
-
-    if (id) {
-      saveProductBtn.textContent = 'Actualizando...';
-      await updateProduct(id, productData);
-    } else {
-      saveProductBtn.textContent = 'Creando...';
-      // If creating and no images, maybe alert?
-      await createProduct(productData);
-    }
-
-    // Success
-    productModal.style.display = 'none';
-    productForm.reset();
-    saveProductBtn.textContent = 'Guardar Cambios';
-    saveProductBtn.disabled = false;
-
-    // Refresh table
-    loadProductsTable();
-
-  } catch (error) {
-    console.error(error);
-    productError.textContent = 'Error: ' + error.message;
-    saveProductBtn.textContent = 'Guardar Cambios';
-    saveProductBtn.disabled = false;
-  }
-});
-
-// Delete Product Handler
-document.getElementById('delete-product-btn').addEventListener('click', async () => {
-  const id = document.getElementById('prod-id').value;
-  if (!id) return;
-
-  if (confirm('¿Realmente desea eliminar este producto de forma permanente?')) {
-    try {
-      await deleteProduct(id);
-      productModal.style.display = 'none';
-      loadProductsTable();
     } catch (error) {
-      productError.textContent = 'Error al eliminar: ' + error.message;
+      ordersTbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: var(--danger);">Error cargando pedidos.</td></tr>';
+      console.error(error);
     }
   }
-});
 
-// Initialize
-checkSession();
+  // Load KPIs for Home
+  async function loadKpis() {
+    try {
+      const products = await fetchProducts();
+      const kpiProducts = document.getElementById('kpi-products');
+      if (kpiProducts) kpiProducts.textContent = products.length;
+
+      const orders = await fetchOrders();
+      const kpiSales = document.getElementById('kpi-sales');
+      if (kpiSales) kpiSales.textContent = orders.length;
+
+      const pendingOrders = orders.filter(o => o.status === 'pending');
+      const kpiOrders = document.getElementById('kpi-orders');
+      if (kpiOrders) kpiOrders.textContent = pendingOrders.length;
+
+      // Calculate total revenue (only paid/shipped/delivered)
+      const validStatuses = ['paid', 'shipped', 'delivered'];
+      const revenue = orders
+        .filter(o => validStatuses.includes(o.status))
+        .reduce((sum, o) => sum + Number(o.total || 0), 0);
+
+      const kpiRevenue = document.getElementById('kpi-revenue');
+      if (kpiRevenue) kpiRevenue.textContent = '$' + revenue.toFixed(2);
+    } catch (e) {
+      console.error('Error loading KPIs', e);
+    }
+  }
+
+  // PDF Generation
+  function generateReceiptPDF(order) {
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
+
+    // Clean, minimalist PDF style
+    doc.setFontSize(22);
+    doc.text("D'LUX BOUTIQUE", 105, 20, { align: "center" });
+    doc.setFontSize(10);
+    doc.text(`ORDEN #${order.order_number}`, 105, 28, { align: "center" });
+
+    doc.setFontSize(12);
+    doc.text("DETALLES DEL CLIENTE", 14, 45);
+    doc.line(14, 47, 196, 47);
+
+    doc.setFontSize(10);
+    doc.text(`Cliente: ${order.customer_name}`, 14, 55);
+    doc.text(`Documento: ${order.customer_doc}`, 14, 61);
+    doc.text(`Fecha: ${new Date(order.created_at).toLocaleDateString()}`, 14, 67);
+
+    const tableColumn = ["Artículo", "Cant", "Precio", "Subtotal"];
+    const tableRows = [];
+
+    if (Array.isArray(order.items)) {
+      order.items.forEach(item => {
+        tableRows.push([item.n, item.q, `$${item.p.toFixed(2)}`, `$${(item.q * item.p).toFixed(2)}`]);
+      });
+    }
+
+    doc.autoTable({
+      startY: 75,
+      head: [tableColumn],
+      body: tableRows,
+      theme: 'plain',
+      headStyles: { fillColor: [0, 0, 0], textColor: [255, 255, 255] }
+    });
+
+    const finalY = doc.lastAutoTable.finalY + 10;
+    doc.setFont("helvetica", "bold");
+    doc.text(`TOTAL: $${Number(order.total).toFixed(2)}`, 196, finalY, { align: "right" });
+
+    doc.save(`Pedido_${order.order_number}.pdf`);
+  }
+
+  // Create/Update Product Form Submission
+  if (productForm) {
+    productForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      if (productError) productError.textContent = '';
+
+      const id = document.getElementById('prod-id').value;
+      if (saveProductBtn) {
+        saveProductBtn.textContent = 'Procesando...';
+        saveProductBtn.disabled = true;
+      }
+
+      try {
+        const name = document.getElementById('prod-name').value;
+        const price = parseFloat(document.getElementById('prod-price').value);
+        const stock = parseInt(document.getElementById('prod-stock').value, 10);
+        const description = document.getElementById('prod-desc').value;
+        const status = document.getElementById('prod-status').value;
+        const fileInput = document.getElementById('prod-image');
+
+        let images = [];
+
+        if (fileInput.files.length > 0) {
+          if (saveProductBtn) saveProductBtn.textContent = 'Subiendo Imágenes...';
+          const files = Array.from(fileInput.files).slice(0, 5);
+          for (const file of files) {
+            const url = await uploadImageToCloudinary(file);
+            images.push(url);
+          }
+        }
+
+        const productData = {
+          name,
+          price,
+          stock,
+          description,
+          status
+        };
+
+        if (images.length > 0) {
+          productData.images = images;
+        }
+
+        if (id) {
+          if (saveProductBtn) saveProductBtn.textContent = 'Actualizando...';
+          await updateProduct(id, productData);
+        } else {
+          if (saveProductBtn) saveProductBtn.textContent = 'Creando...';
+          await createProduct(productData);
+        }
+
+        if (productModal) productModal.style.display = 'none';
+        productForm.reset();
+        loadProductsTable();
+
+      } catch (error) {
+        console.error(error);
+        if (productError) productError.textContent = 'Error: ' + error.message;
+      } finally {
+        if (saveProductBtn) {
+          saveProductBtn.textContent = 'Guardar Cambios';
+          saveProductBtn.disabled = false;
+        }
+      }
+    });
+  }
+
+  // Delete Product Handler
+  const deleteProdBtn = document.getElementById('delete-product-btn');
+  if (deleteProdBtn) {
+    deleteProdBtn.addEventListener('click', async () => {
+      const id = document.getElementById('prod-id').value;
+      if (!id) return;
+
+      if (confirm('¿Realmente desea eliminar este producto de forma permanente?')) {
+        try {
+          await deleteProduct(id);
+          if (productModal) productModal.style.display = 'none';
+          loadProductsTable();
+        } catch (error) {
+          if (productError) productError.textContent = 'Error al eliminar: ' + error.message;
+        }
+      }
+    });
+  }
+
+  // Initialize
+  checkSession();
+  loadKpis();
+});
