@@ -27,6 +27,10 @@ CREATE TABLE IF NOT EXISTS public.transactions (
   category text NOT NULL,
   concept text NOT NULL,
   amount numeric(12,2) NOT NULL,
+  currency VARCHAR(10) DEFAULT 'USD', -- USD or BS
+  exchange_rate DECIMAL(12,2) DEFAULT 1.0,
+  amount_bs DECIMAL(20,2), -- Calculated amount in Bolívares
+  payment_method VARCHAR(50), -- Zelle, Cash, Pago Movil, etc
   date timestamp with time zone DEFAULT timezone('utc'::text, now()) NOT NULL,
   created_by uuid REFERENCES auth.users,
   order_id uuid REFERENCES public.orders(id) ON DELETE SET NULL
