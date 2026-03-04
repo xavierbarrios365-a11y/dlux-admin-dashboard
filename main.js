@@ -216,33 +216,95 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   });
 
-  async function loadUsersTable() {
-    const usersTbody = document.getElementById('users-tbody');
-    if (!usersTbody) return;
+  async function loadProductsTable() {
+    const inventoryTbody = document.getElementById('products-tbody'); // Changed to products-tbody as per original
+    if (!inventoryTbody) return;
 
     try {
-      usersTbody.innerHTML = '<tr><td colspan="4" style="text-align: center;">Cargando equipo...</td></tr>';
-      const { data: users, error } = await supabase.from('profiles').select('*');
+      inventoryTbody.innerHTML = '<tr><td colspan="6" style="text-align: center;">Cargando inventario...</td></tr>';
+      const { data: products, error } = await supabase.from('products').select('*').order('name');
       if (error) throw error;
 
-      usersTbody.innerHTML = '';
-      users.forEach(u => {
-        const tr = document.createElement('tr');
-        const roleBadge = u.role === 'admin' ? 'badge-primary' : 'badge-outline';
-        tr.innerHTML = `
-          <td><strong>${u.id.substring(0, 8)}...</strong></td>
-          <td><span class="badge ${roleBadge}">${u.role}</span></td>
-          <td><span class="badge badge-success">Activo</span></td>
-          <td>
-            <button class="btn btn-outline btn-small dev-only" disabled>Editar Rol</button>
-          </td>
-        `;
-        usersTbody.appendChild(tr);
-      });
+      // Populate categories if first load
+      populateCategories(products);
+
+      renderProducts(products);
     } catch (e) {
       console.error(e);
-      usersTbody.innerHTML = '<tr><td colspan="4" style="text-align: center; color:var(--danger)">Error cargando usuarios.</td></tr>';
+      inventoryTbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color:var(--danger)">Error cargando productos.</td></tr>';
     }
+  }
+
+  function populateCategories(products) {
+    const filter = document.getElementById('inventory-category-filter');
+    if (!filter || filter.options.length > 1) return;
+
+    const categories = [...new Set(products.map(p => p.category).filter(Boolean))];
+    categories.forEach(cat => {
+      const opt = document.createElement('option');
+      opt.value = cat;
+      opt.textContent = cat;
+      filter.appendChild(opt);
+    });
+  }
+
+  function renderProducts(products) {
+    const inventoryTbody = document.getElementById('products-tbody'); // Changed to products-tbody as per original
+    const searchTerm = document.getElementById('inventory-search')?.value.toLowerCase() || '';
+    const categoryFilter = document.getElementById('inventory-category-filter')?.value || 'all';
+
+    inventoryTbody.innerHTML = '';
+
+    const filtered = products.filter(p => {
+      const matchesSearch = p.name.toLowerCase().includes(searchTerm) || (p.sku && p.sku.toLowerCase().includes(searchTerm)); // Added SKU search
+      const matchesCategory = categoryFilter === 'all' || p.category === categoryFilter;
+      return matchesSearch && matchesCategory;
+    });
+
+    if (filtered.length === 0) {
+      inventoryTbody.innerHTML = '<tr><td colspan="6" style="text-align: center;">No se encontraron productos.</td></tr>';
+      return;
+    }
+
+    const kpiProducts = document.getElementById('kpi-products');
+    if (kpiProducts) kpiProducts.textContent = filtered.length; // Update KPI with filtered count
+
+    filtered.forEach(product => {
+      const tr = document.createElement('tr');
+      // Determine image (handle gallery or single url)
+      let mainImg = 'https://via.placeholder.com/60?text=DLUX';
+      if (product.images && product.images.length > 0) mainImg = product.images[0];
+      else if (product.image_url) mainImg = product.image_url;
+
+      const stockClass = product.stock <= 0 ? 'badge-danger' : (product.stock <= 5 ? 'badge-warning' : 'badge-success');
+      const stockText = product.stock <= 0 ? 'Agotado' : (product.stock <= 5 ? 'Bajo Stock' : 'Disponible');
+
+      tr.innerHTML = `
+        <td><img src="${mainImg}" class="product-img-thumb" onerror="this.src='https://via.placeholder.com/60?text=Error'"></td>
+        <td>
+          <div style="font-weight:700">${product.name}</div>
+          <div style="font-size:0.7rem; color:var(--text-muted)">${product.sku || 'SIN SKU'}</div>
+        </td>
+        <td style="font-weight:600">$${product.price.toFixed(2)}</td>
+        <td>${product.stock}</td>
+        <td><span class="badge ${stockClass}">${stockText}</span></td>
+        <td>
+          <button class="btn btn-outline btn-small edit-btn" data-id="${product.id}">Editar</button>
+        </td>
+      `;
+      inventoryTbody.appendChild(tr);
+    });
+
+    // Attach edit handlers
+    document.querySelectorAll('.edit-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        const id = e.target.getAttribute('data-id');
+        const product = products.find(p => String(p.id) === String(id));
+        if (product) openEditModal(product);
+      });
+    });
+
+    updateInventoryUIState(); // Re-apply visibility based on current permissions
   }
 
   async function loadCreditsTable() {
@@ -295,17 +357,13 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  // Inventory Search Logic
-  const inventorySearch = document.getElementById('inventory-search');
-  if (inventorySearch) {
-    inventorySearch.addEventListener('input', (e) => {
-      const term = e.target.value.toLowerCase();
-      document.querySelectorAll('#inventory-tbody tr').forEach(row => {
-        const text = row.innerText.toLowerCase();
-        row.style.display = text.includes(term) ? '' : 'none';
-      });
-    });
-  }
+  // Inventory Filter Listeners
+  document.getElementById('inventory-search')?.addEventListener('input', () => {
+    // Re-render from memory if possible, or just call load but that's expensive.
+    // For now, let's optimize the simple search we added before.
+    loadProductsTable();
+  });
+  document.getElementById('inventory-category-filter')?.addEventListener('change', loadProductsTable);
 
   // Gallery Preview Logic
   const imageGalleryPreview = document.getElementById('image-gallery-preview');
@@ -933,83 +991,80 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-});
+  // --- Payroll Flow ---
+  if (btnAddPayroll) {
+    btnAddPayroll.addEventListener('click', () => {
+      payrollModal.style.display = 'flex';
+    });
   }
 
-// --- Payroll Flow ---
-if (btnAddPayroll) {
-  btnAddPayroll.addEventListener('click', () => {
-    payrollModal.style.display = 'flex';
-  });
-}
-
-if (closePayrollModalBtn) {
-  closePayrollModalBtn.addEventListener('click', () => {
-    payrollModal.style.display = 'none';
-    if (payrollForm) payrollForm.reset();
-  });
-}
-
-if (payrollForm) {
-  payrollForm.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    payrollError.innerText = '';
-    const saveBtn = document.getElementById('save-payroll-btn');
-    if (saveBtn) {
-      saveBtn.disabled = true;
-      saveBtn.innerText = 'Guardando...';
-    }
-
-    const { data: { user } } = await supabase.auth.getUser();
-    const payrollData = {
-      employeeName: document.getElementById('pay-employee').value,
-      amount: document.getElementById('pay-amount').value,
-      periodStart: document.getElementById('pay-start').value,
-      periodEnd: document.getElementById('pay-end').value,
-      paymentMethod: document.getElementById('pay-method').value,
-      notes: document.getElementById('pay-notes').value,
-      userId: user.id
-    };
-
-    try {
-      const { error } = await supabase.from('payroll').insert([{
-        employee_name: payrollData.employeeName,
-        amount: parseFloat(payrollData.amount),
-        period_start: payrollData.periodStart || null,
-        period_end: payrollData.periodEnd || null,
-        payment_method: payrollData.paymentMethod,
-        notes: payrollData.notes,
-        created_by: payrollData.userId
-      }]);
-
-      if (error) throw error;
-
-      // Also record as a transaction egreso
-      await supabase.from('transactions').insert([{
-        type: 'egreso',
-        category: 'nomina',
-        concept: `Pago a ${payrollData.employeeName}`,
-        amount: parseFloat(payrollData.amount),
-        payment_method: payrollData.paymentMethod,
-        created_by: payrollData.userId
-      }]);
-
+  if (closePayrollModalBtn) {
+    closePayrollModalBtn.addEventListener('click', () => {
       payrollModal.style.display = 'none';
-      payrollForm.reset();
-      loadPayrollTable();
-      loadHomeData();
-    } catch (err) {
-      payrollError.innerText = err.message;
-    } finally {
-      if (saveBtn) {
-        saveBtn.disabled = false;
-        saveBtn.innerText = 'Confirmar Pago';
-      }
-    }
-  });
-}
+      if (payrollForm) payrollForm.reset();
+    });
+  }
 
-// --- Initialize ---
-checkSession();
-loadHomeData();
+  if (payrollForm) {
+    payrollForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      payrollError.innerText = '';
+      const saveBtn = document.getElementById('save-payroll-btn');
+      if (saveBtn) {
+        saveBtn.disabled = true;
+        saveBtn.innerText = 'Guardando...';
+      }
+
+      const { data: { user } } = await supabase.auth.getUser();
+      const payrollData = {
+        employeeName: document.getElementById('pay-employee').value,
+        amount: document.getElementById('pay-amount').value,
+        periodStart: document.getElementById('pay-start').value,
+        periodEnd: document.getElementById('pay-end').value,
+        paymentMethod: document.getElementById('pay-method').value,
+        notes: document.getElementById('pay-notes').value,
+        userId: user.id
+      };
+
+      try {
+        const { error } = await supabase.from('payroll').insert([{
+          employee_name: payrollData.employeeName,
+          amount: parseFloat(payrollData.amount),
+          period_start: payrollData.periodStart || null,
+          period_end: payrollData.periodEnd || null,
+          payment_method: payrollData.paymentMethod,
+          notes: payrollData.notes,
+          created_by: payrollData.userId
+        }]);
+
+        if (error) throw error;
+
+        // Also record as a transaction egreso
+        await supabase.from('transactions').insert([{
+          type: 'egreso',
+          category: 'nomina',
+          concept: `Pago a ${payrollData.employeeName}`,
+          amount: parseFloat(payrollData.amount),
+          payment_method: payrollData.paymentMethod,
+          created_by: payrollData.userId
+        }]);
+
+        payrollModal.style.display = 'none';
+        payrollForm.reset();
+        loadPayrollTable();
+        loadHomeData();
+      } catch (err) {
+        payrollError.innerText = err.message;
+      } finally {
+        if (saveBtn) {
+          saveBtn.disabled = false;
+          saveBtn.innerText = 'Confirmar Pago';
+        }
+      }
+    });
+  }
+
+  // --- Initialize ---
+  checkSession();
+  loadHomeData();
 });
