@@ -149,10 +149,18 @@
                                 <p style="font-size: 0.8rem; color: var(--text-muted);">Auditoría completa de
                                     movimientos en tienda.</p>
                             </div>
-                            <div style="display: flex; gap: 0.5rem;">
+                            <div style="display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;">
+                                <div class="search-box" style="display: flex; gap: 0.25rem; align-items: center;">
+                                    <label style="font-size: 0.7rem; color: var(--text-muted);">Desde:</label>
+                                    <input type="date" id="report-date-start" class="filter-select">
+                                </div>
+                                <div class="search-box" style="display: flex; gap: 0.25rem; align-items: center;">
+                                    <label style="font-size: 0.7rem; color: var(--text-muted);">Hasta:</label>
+                                    <input type="date" id="report-date-end" class="filter-select">
+                                </div>
                                 <button id="btn-new-expense" class="btn btn-outline" style="width: auto;">+ Registrar
                                     Gasto</button>
-                                <button id="btn-export-report" class="btn btn-primary" style="width: auto;">Exportar
+                                <button id="btn-export-pdf" class="btn btn-primary" style="width: auto;">Exportar
                                     PDF</button>
                             </div>
                         </div>
@@ -419,6 +427,94 @@
                     <button type="submit" id="save-expense-btn" class="btn">Guardar Gasto</button>
                 </div>
                 <div id="expense-error" class="error-msg" style="color: var(--danger); margin-top: 1rem;"></div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Abono Modal -->
+    <div id="abono-modal" class="modal" style="display: none;">
+        <div class="modal-content" style="width: 400px;">
+            <div class="modal-header">
+                <h3>Registrar Abono</h3>
+                <button id="close-abono-modal"
+                    style="background:none; border:none; font-size:1.5rem; cursor:pointer;">&times;</button>
+            </div>
+            <form id="abono-form">
+                <input type="hidden" id="abono-credit-id">
+                <div class="input-group">
+                    <label>Cliente</label>
+                    <p id="abono-customer-name" style="font-weight: bold; margin-bottom: 1rem;"></p>
+                </div>
+                <div class="input-group">
+                    <label>Saldo Pendiente</label>
+                    <p id="abono-remaining-amount" style="color: var(--danger); font-weight: bold; font-size: 1.2rem;">
+                    </p>
+                </div>
+                <div class="input-group">
+                    <label for="abono-amount">Monto a Abonar ($)</label>
+                    <input type="number" id="abono-amount" step="0.01" required placeholder="0.00">
+                </div>
+                <div class="input-group">
+                    <label for="abono-method">Método de Pago</label>
+                    <select id="abono-method" required>
+                        <option value="Cash">Efectivo</option>
+                        <option value="Zelle">Zelle</option>
+                        <option value="Pago Movil">Pago Móvil</option>
+                        <option value="Transferencia">Transferencia</option>
+                    </select>
+                </div>
+                <div class="modal-footer">
+                    <button type="submit" id="save-abono-btn" class="btn">Registrar Abono</button>
+                </div>
+                <div id="abono-error" class="error-msg" style="color: var(--danger); margin-top: 1rem;"></div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Payroll Modal -->
+    <div id="payroll-modal" class="modal" style="display: none;">
+        <div class="modal-content" style="width: 450px;">
+            <div class="modal-header">
+                <h3>Registrar Pago de Nómina</h3>
+                <button id="close-payroll-modal"
+                    style="background:none; border:none; font-size:1.5rem; cursor:pointer;">&times;</button>
+            </div>
+            <form id="payroll-form">
+                <div class="input-group">
+                    <label for="pay-employee">Nombre del Empleado / Concepto</label>
+                    <input type="text" id="pay-employee" required placeholder="Ej: Juan Pérez">
+                </div>
+                <div class="input-group">
+                    <label for="pay-amount">Monto ($)</label>
+                    <input type="number" id="pay-amount" step="0.01" required placeholder="0.00">
+                </div>
+                <div style="display: flex; gap: 1rem;">
+                    <div class="input-group" style="flex: 1;">
+                        <label for="pay-start">Inicio Periodo</label>
+                        <input type="date" id="pay-start">
+                    </div>
+                    <div class="input-group" style="flex: 1;">
+                        <label for="pay-end">Fin Periodo</label>
+                        <input type="date" id="pay-end">
+                    </div>
+                </div>
+                <div class="input-group">
+                    <label for="pay-method">Método de Pago</label>
+                    <select id="pay-method" required>
+                        <option value="Cash">Efectivo</option>
+                        <option value="Zelle">Zelle</option>
+                        <option value="Pago Movil">Pago Móvil</option>
+                        <option value="Transferencia">Transferencia</option>
+                    </select>
+                </div>
+                <div class="input-group">
+                    <label for="pay-notes">Notas Adicionales</label>
+                    <textarea id="pay-notes" rows="2"></textarea>
+                </div>
+                <div class="modal-footer">
+                    <button type="submit" id="save-payroll-btn" class="btn">Guardar Pago</button>
+                </div>
+                <div id="payroll-error" class="error-msg" style="color: var(--danger); margin-top: 1rem;"></div>
             </form>
         </div>
     </div>

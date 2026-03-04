@@ -156,3 +156,95 @@ export async function registerExpense(expenseData) {
     if (error) return { success: false, error: error.message }
     return { success: true, data }
 }
+
+/**
+ * Registra un abono a un crédito existente
+ * @param {string} creditId - ID del crédito
+ * @param {number} amount - Monto del abono
+ * @param {string} paymentMethod - Método de pago
+ * @param {string} userId - ID del usuario que registra
+ */
+export async function registerPayment(creditId, amount, paymentMethod, userId) {
+    try {
+        // 1. Obtener datos del crédito
+        const { data: credit, error: cError } = await supabase
+            .from('credits')
+            .select('*')
+            .eq('id', creditId)
+            .single();
+
+        if (cError || !credit) throw new Error("Crédito no encontrado");
+
+        const newRemaining = credit.remaining_amount - amount;
+        const newStatus = newRemaining <= 0 ? 'paid' : credit.status;
+
+        // 2. Actualizar el crédito
+        const { error: uError } = await supabase
+            .from('credits')
+            .update({
+                remaining_amount: newRemaining,
+                status: newStatus
+            })
+            .eq('id', creditId);
+
+        if (uError) throw uError;
+
+        // 3. Crear transacción de ingreso
+        await supabase.from('transactions').insert([{
+            type: 'ingreso',
+            category: 'abono',
+            concept: `Abono de ${credit.customer_name}`,
+            amount: parseFloat(amount),
+            payment_method: paymentMethod,
+            created_by: userId,
+            order_id: credit.order_id
+        }]);
+
+        return { success: true };
+    } catch (error) {
+        console.error('Error al registrar pago:', error);
+        return { success: false, error: error.message };
+    }
+}
+
+/**
+ * Registra un pago de nómina o servicio
+ * @param {Object} payrollData - { employeeName, amount, method, periodStart, periodEnd, notes, userId }
+ */
+export async function registerPayroll(payrollData) {
+    const { employeeName, amount, method, periodStart, periodEnd, notes, userId } = payrollData;
+
+    try {
+        // 1. Crear registro en tabla payroll
+        const { data: payroll, error: pError } = await supabase
+            .from('payroll')
+            .insert([{
+                employee_name: employeeName,
+                amount: parseFloat(amount),
+                payment_method: method,
+                period_start: periodStart,
+                period_end: periodEnd,
+                notes: notes,
+                created_by: userId
+            }])
+            .select()
+            .single();
+
+        if (pError) throw pError;
+
+        // 2. Crear transacción de egreso
+        await supabase.from('transactions').insert([{
+            type: 'egreso',
+            category: 'Personal',
+            concept: `Pago de Nómina: ${employeeName}`,
+            amount: parseFloat(amount),
+            payment_method: method,
+            created_by: userId
+        }]);
+
+        return { success: true, data: payroll };
+    } catch (error) {
+        console.error('Error al registrar nómina:', error);
+        return { success: false, error: error.message };
+    }
+}
