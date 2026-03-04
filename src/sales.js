@@ -102,6 +102,8 @@ export async function getFinancialSummary() {
 
     // Alternative: manual aggregate
     const { data: all } = await supabase.from('transactions').select('type, amount')
+    if (!all) return { totalRevenue: 0, totalExpenses: 0, netProfit: 0 }
+
     const totals = all.reduce((acc, curr) => {
         if (curr.type === 'ingreso') acc.income += curr.amount
         else acc.expense += curr.amount
