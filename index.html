@@ -127,8 +127,17 @@
                     <!-- Reports View (Admin Only) -->
                     <div id="view-reports" class="view-section admin-only" style="display: none;">
                         <div class="view-header">
-                            <h2>Reportes Financieros</h2>
-                            <button id="btn-export-report" class="btn btn-primary">Exportar PDF</button>
+                            <div>
+                                <h2>Reportes Financieros</h2>
+                                <p style="font-size: 0.8rem; color: var(--text-muted);">Auditoría completa de
+                                    movimientos en tienda.</p>
+                            </div>
+                            <div style="display: flex; gap: 0.5rem;">
+                                <button id="btn-new-expense" class="btn btn-outline" style="width: auto;">+ Registrar
+                                    Gasto</button>
+                                <button id="btn-export-report" class="btn btn-primary" style="width: auto;">Exportar
+                                    PDF</button>
+                            </div>
                         </div>
                         <div class="kpi-grid">
                             <div class="kpi-card">
@@ -251,6 +260,43 @@
                     <button type="submit" id="save-sale-btn" class="btn">Procesar Venta</button>
                 </div>
                 <div id="sales-error" class="error-msg" style="color: var(--danger); margin-top: 1rem;"></div>
+            </form>
+        </div>
+    </div>
+
+    </div>
+
+    <!-- Expense Modal -->
+    <div id="expense-modal" class="modal" style="display: none;">
+        <div class="modal-content" style="width: 400px;">
+            <div class="modal-header">
+                <h3>Registrar Gasto / Egreso</h3>
+                <button id="close-expense-modal"
+                    style="background:none; border:none; font-size:1.5rem; cursor:pointer;">&times;</button>
+            </div>
+            <form id="expense-form">
+                <div class="input-group">
+                    <label for="exp-concept">Concepto / Descripción</label>
+                    <input type="text" id="exp-concept" required placeholder="Ej: Pago de Luz - Marzo">
+                </div>
+                <div class="input-group">
+                    <label for="exp-category">Categoría</label>
+                    <select id="exp-category" required>
+                        <option value="Servicios">Servicios (Luz, Agua, Internet)</option>
+                        <option value="Logistica">Logística / Envíos</option>
+                        <option value="Local">Alquiler / Mantenimiento</option>
+                        <option value="Personal">Sueldos / Comisiones</option>
+                        <option value="Otros">Otros</option>
+                    </select>
+                </div>
+                <div class="input-group">
+                    <label for="exp-amount">Monto ($)</label>
+                    <input type="number" id="exp-amount" step="0.01" required placeholder="0.00">
+                </div>
+                <div class="modal-footer">
+                    <button type="submit" id="save-expense-btn" class="btn">Guardar Gasto</button>
+                </div>
+                <div id="expense-error" class="error-msg" style="color: var(--danger); margin-top: 1rem;"></div>
             </form>
         </div>
     </div>
