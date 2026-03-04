@@ -69,11 +69,9 @@
 
                     <!-- Inventory View -->
                     <div id="view-inventory" class="view-section" style="display: none;">
-                        <div class="section-header"
-                            style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
+                        <div class="view-header">
                             <h2>Inventario</h2>
-                            <button id="btn-new-product" class="btn" style="width: auto; padding: 0.5rem 1.5rem;">+
-                                Nuevo Producto</button>
+                            <button id="btn-new-product" class="btn btn-primary">+ Nuevo Producto</button>
                         </div>
                         <div class="table-container">
                             <table class="data-table">
@@ -161,9 +159,8 @@
                         <option value="archived">Archivado</option>
                     </select>
                 </div>
-                <div style="display: flex; gap: 1rem; margin-top: 2rem;">
-                    <button type="button" id="delete-product-btn" class="btn btn-outline"
-                        style="color: var(--danger); border-color: var(--danger); display: none;">Eliminar
+                <div class="modal-footer">
+                    <button type="button" id="delete-product-btn" class="btn btn-outline btn-danger">Eliminar
                         Producto</button>
                     <button type="submit" id="save-product-btn" class="btn">Guardar Cambios</button>
                 </div>
