@@ -85,11 +85,13 @@ document.addEventListener('DOMContentLoaded', () => {
   function applyPermissions(role) {
     const adminElements = document.querySelectorAll('.admin-only')
     adminElements.forEach(el => {
-      el.style.display = (role === 'admin') ? 'block' : 'none'
-      if (el.tagName === 'A' && role === 'admin') el.style.display = 'block'
+      if (!el.classList.contains('view-section')) {
+        el.style.display = (role === 'admin') ? '' : 'none'
+      }
     })
     updateInventoryUIState()
   }
+
 
   function updateInventoryUIState() {
     const canEdit = (currentUserRole === 'admin' || inventoryEditEnabled)
@@ -841,6 +843,14 @@ ${order.notes ? 'Notas: ' + order.notes : ''}`
       }
     })
 
+    const cats = trans.reduce((acc, t) => {
+      if (t.type === 'ingreso') {
+        const cat = t.category || 'Otros'
+        acc[cat] = (acc[cat] || 0) + Number(t.amount)
+      }
+      return acc
+    }, {})
+
     if (categoryChart) categoryChart.destroy()
     categoryChart = new Chart(ctx2, {
       type: 'doughnut',
@@ -851,6 +861,7 @@ ${order.notes ? 'Notas: ' + order.notes : ''}`
           backgroundColor: ['#4299E1', '#48BB78', '#F6E05E', '#ED8936', '#9F7AEA', '#F56565']
         }]
       },
+
       options: {
         responsive: true,
         maintainAspectRatio: false,
