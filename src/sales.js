@@ -5,7 +5,7 @@ import { supabase } from './supabase.js'
  * @param {Object} saleData - { customer, items: [{ productId, quantity }], notes, userId, currency, exchangeRate, paymentMethod, paymentStatus, dueDate }
  */
 export async function registerSale(saleData) {
-    const { customer, items, notes, userId, currency, exchangeRate, paymentMethod, paymentStatus, dueDate, installments, paymentCycle } = saleData
+    const { customer, customerDoc, customerPhone, items, notes, userId, currency, exchangeRate, paymentMethod, paymentStatus, dueDate, installments, paymentCycle } = saleData
 
     try {
         // 1. Calculate total price and prepare order
@@ -40,8 +40,12 @@ export async function registerSale(saleData) {
         const { data: order, error: oError } = await supabase
             .from('orders') // Assuming 'orders' table exists from previous context
             .insert([{
+                order_number: `ORD-${Date.now()}`,
                 customer_name: customer,
+                customer_doc: customerDoc, // Valor real introducido en la UI
+                customer_phone: customerPhone || null, // Valor opcional de la UI
                 total_amount: totalAmount,
+                total: totalAmount, // Salvavidas para la columna antigua
                 status: paymentStatus || 'paid', // Use paymentStatus for order status
                 items: processedItems,
                 notes: notes,

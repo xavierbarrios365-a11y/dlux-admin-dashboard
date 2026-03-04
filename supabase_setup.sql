@@ -144,6 +144,11 @@ ADD COLUMN IF NOT EXISTS payment_method VARCHAR(50),
 ADD COLUMN IF NOT EXISTS payment_status TEXT DEFAULT 'completed',
 ADD COLUMN IF NOT EXISTS order_id uuid REFERENCES public.orders(id) ON DELETE SET NULL;
 
+-- Asegurar tabla orders tenga columnas base de Admin
+ALTER TABLE public.orders
+ADD COLUMN IF NOT EXISTS created_by uuid REFERENCES auth.users(id),
+ADD COLUMN IF NOT EXISTS notes TEXT;
+
 ALTER TABLE public.credits
 ADD COLUMN IF NOT EXISTS order_id uuid REFERENCES public.orders(id) ON DELETE SET NULL;
 
@@ -193,3 +198,61 @@ DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
 CREATE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
   FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
+
+-- =============================================
+-- SECCIÓN CRÍTICA: Políticas de BORRADO faltantes
+-- Ejecutar si los botones "Eliminar" no funcionan
+-- =============================================
+
+-- 1. Crear la tabla orders si no existe
+CREATE TABLE IF NOT EXISTS public.orders (
+  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+  order_number TEXT,
+  customer_name TEXT NOT NULL,
+  customer_doc TEXT DEFAULT 'N/A',
+  customer_phone TEXT,
+  items JSONB,
+  total_amount DECIMAL(12,2),
+  total DECIMAL(12,2),
+  status TEXT DEFAULT 'paid',
+  notes TEXT,
+  created_by uuid REFERENCES auth.users(id),
+  created_at timestamp with time zone DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+ALTER TABLE public.orders ENABLE ROW LEVEL SECURITY;
+
+-- 2. Política SELECT (todos los autenticados pueden ver pedidos)
+DROP POLICY IF EXISTS "Authenticated users can view orders" ON public.orders;
+CREATE POLICY "Authenticated users can view orders" ON public.orders
+  FOR SELECT USING (auth.role() = 'authenticated');
+
+-- 3. Política INSERT (vendedores y admins pueden crear pedidos)
+DROP POLICY IF EXISTS "Authenticated users can create orders" ON public.orders;
+CREATE POLICY "Authenticated users can create orders" ON public.orders
+  FOR INSERT WITH CHECK (auth.role() = 'authenticated');
+
+-- 4. Política UPDATE (solo admins)
+DROP POLICY IF EXISTS "Admins can update orders" ON public.orders;
+CREATE POLICY "Admins can update orders" ON public.orders
+  FOR UPDATE USING (
+    EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role = 'admin')
+  );
+
+-- 5. Política DELETE para orders (FALTABA - causa botón inoperante)
+DROP POLICY IF EXISTS "Admins can delete orders" ON public.orders;
+CREATE POLICY "Admins can delete orders" ON public.orders
+  FOR DELETE USING (
+    EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role = 'admin')
+  );
+
+-- 6. Política DELETE para transactions (FALTABA - causa × inoperante en Auditoría)
+DROP POLICY IF EXISTS "Admins can delete transactions" ON public.transactions;
+CREATE POLICY "Admins can delete transactions" ON public.transactions
+  FOR DELETE USING (
+    EXISTS (SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role = 'admin')
+  );
+
+-- Refrescar caché del schema para evitar errores "column not found"
+NOTIFY pgrst, 'reload schema';
+

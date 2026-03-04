@@ -54,6 +54,7 @@ document.addEventListener('DOMContentLoaded', () => {
   let currentUserRole = 'vendedor'
   let inventoryEditEnabled = false
   let allProducts = [] // Cache para filtros rápidos
+  let knownCustomers = [] // Cache de clientes para autocompletado
 
   // --- Inicialización y Sesión ---
   async function checkSession() {
@@ -276,6 +277,19 @@ document.addEventListener('DOMContentLoaded', () => {
     ordersTbody.innerHTML = '<tr><td colspan="6" style="text-align: center;">Cargando pedidos...</td></tr>'
     try {
       const orders = await fetchOrders()
+
+      // Actualizar caché de clientes para autocompletado
+      knownCustomers = []
+      orders.forEach(o => {
+        if (o.customer_name && !knownCustomers.some(c => c.name.toLowerCase() === o.customer_name.toLowerCase())) {
+          knownCustomers.push({ name: o.customer_name, doc: o.customer_doc, phone: o.customer_phone })
+        }
+      })
+      const datalist = document.getElementById('customer-suggestions')
+      if (datalist) {
+        datalist.innerHTML = knownCustomers.map(c => `<option value="${c.name}"></option>`).join('')
+      }
+
       ordersTbody.innerHTML = orders.length ? '' : '<tr><td colspan="6" style="text-align: center;">No hay pedidos registrados.</td></tr>'
       orders.forEach(o => {
         const tr = document.createElement('tr')
@@ -292,20 +306,66 @@ document.addEventListener('DOMContentLoaded', () => {
         `
         ordersTbody.appendChild(tr)
       })
-
-      document.querySelectorAll('.delete-order').forEach(btn => {
-        btn.addEventListener('click', async (e) => {
-          if (confirm('¿Eliminar este pedido?')) {
-            const id = e.target.getAttribute('data-id')
-            await deleteOrder(id)
-            loadOrdersTable()
-          }
-        })
-      })
     } catch (e) {
       console.error(e)
     }
   }
+
+  // Delegación de eventos para la tabla de pedidos (Soluciona botones Ver/Eliminar)
+  if (ordersTbody) {
+    ordersTbody.addEventListener('click', async (e) => {
+
+      // ----- Botón ELIMINAR -----
+      const btnDelete = e.target.closest('.delete-order')
+      if (btnDelete) {
+        if (confirm('¿Eliminar este pedido permanentemente? Esta acción no se puede deshacer.')) {
+          const id = btnDelete.getAttribute('data-id')
+          btnDelete.disabled = true
+          btnDelete.textContent = '...'
+          try {
+            const { error } = await supabase.from('orders').delete().eq('id', id)
+            if (error) throw error
+            loadOrdersTable()
+          } catch (err) {
+            console.error('Error al eliminar pedido:', err)
+            alert(`Error al eliminar: ${err.message}\n\nSi ves "violates row-level security", ejecuta el SQL de permisos en Supabase (ver walkthrough.md).`)
+            btnDelete.disabled = false
+            btnDelete.textContent = 'Eliminar'
+          }
+        }
+        return
+      }
+
+      // ----- Botón VER -----
+      const btnView = e.target.closest('.view-order')
+      if (btnView) {
+        const id = btnView.getAttribute('data-id')
+        try {
+          const { data: order, error } = await supabase.from('orders').select('*').eq('id', id).single()
+          if (error) throw error
+          const items = order.items || []
+          const itemLines = items.map(i => `• ${i.name} x${i.quantity} = $${(i.total || 0).toFixed(2)}`).join('\n')
+          alert(
+            `📋 DETALLE DE VENTA
+─────────────────────────────
+Cliente: ${order.customer_name || 'N/A'}
+Cédula:  ${order.customer_doc || 'N/A'}
+Teléfono:${order.customer_phone || 'N/A'}
+Fecha:   ${new Date(order.created_at).toLocaleString()}
+Estado:  ${order.status?.toUpperCase()}
+─────────────────────────────
+${itemLines}
+─────────────────────────────
+TOTAL:   $${(order.total_amount || order.total || 0).toFixed(2)}
+${order.notes ? 'Notas: ' + order.notes : ''}`
+          )
+        } catch (err) {
+          alert('No se pudo cargar el detalle: ' + err.message)
+        }
+      }
+    })
+  }
+
 
   // --- Lógica del Modal de Ventas ---
   if (btnNewOrder) btnNewOrder.addEventListener('click', () => {
@@ -358,6 +418,18 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('sale-total-bs-display').textContent = `(Bs. ${(total * rate).toFixed(2)})`
   }
 
+  const saleCustomerInput = document.getElementById('sale-customer')
+  if (saleCustomerInput) {
+    saleCustomerInput.addEventListener('input', (e) => {
+      const val = e.target.value.toLowerCase()
+      const match = knownCustomers.find(c => c.name.toLowerCase() === val)
+      if (match) {
+        document.getElementById('sale-customer-doc').value = match.doc || ''
+        document.getElementById('sale-customer-phone').value = match.phone || ''
+      }
+    })
+  }
+
   if (salesForm) {
     salesForm.addEventListener('submit', async (e) => {
       e.preventDefault()
@@ -377,6 +449,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const { data: { user } } = await supabase.auth.getUser()
         const saleData = {
           customer: document.getElementById('sale-customer').value,
+          customerDoc: document.getElementById('sale-customer-doc').value,
+          customerPhone: document.getElementById('sale-customer-phone').value,
           items,
           notes: document.getElementById('sale-notes').value,
           userId: user.id,
@@ -763,30 +837,24 @@ document.addEventListener('DOMContentLoaded', () => {
       options: {
         responsive: true,
         maintainAspectRatio: false,
-        plugins: { legend: { position: 'bottom' } },
-        scales: { y: { beginAtZero: true } }
+        plugins: { legend: { position: 'bottom' } }
       }
     })
-
-    // Gráfico 2: Ingresos por método de pago
-    const summary = await getFinancialSummary()
-    const methods = Object.keys(summary.breakdown || {})
-    const amounts = Object.values(summary.breakdown || {})
 
     if (categoryChart) categoryChart.destroy()
     categoryChart = new Chart(ctx2, {
       type: 'doughnut',
       data: {
-        labels: methods,
+        labels: Object.keys(cats),
         datasets: [{
-          data: amounts,
-          backgroundColor: ['#4299e1', '#48bb78', '#ed8936', '#ecc94b', '#9f7aea']
+          data: Object.values(cats),
+          backgroundColor: ['#4299E1', '#48BB78', '#F6E05E', '#ED8936', '#9F7AEA', '#F56565']
         }]
       },
       options: {
         responsive: true,
         maintainAspectRatio: false,
-        plugins: { legend: { position: 'bottom' } }
+        plugins: { legend: { position: 'right' } }
       }
     })
   }
@@ -904,19 +972,34 @@ document.addEventListener('DOMContentLoaded', () => {
         `
         tbody.appendChild(tr)
       })
-
-      document.querySelectorAll('.delete-trans').forEach(btn => {
-        btn.onclick = async (e) => {
-          if (confirm('¿Eliminar este registro? Advertencia: Esto no revertirá el stock automáticamente.')) {
-            const transId = e.currentTarget.getAttribute('data-id')
-            await supabase.from('transactions').delete().eq('id', transId)
-            loadAuditTable()
-          }
-        }
-      })
     } catch (e) {
       console.error(e)
     }
+  }
+
+  // Delegación de eventos para auditoría (Soluciona botón × inactivo)
+  const auditTbody = document.getElementById('audit-tbody')
+  if (auditTbody) {
+    auditTbody.addEventListener('click', async (e) => {
+      const btn = e.target.closest('.delete-trans')
+      if (btn) {
+        if (confirm('¿Eliminar este registro financiero?\nAdvertencia: Esto NO revertirá el stock automáticamente.')) {
+          const transId = btn.getAttribute('data-id')
+          btn.disabled = true
+          btn.textContent = '...'
+          try {
+            const { error } = await supabase.from('transactions').delete().eq('id', transId)
+            if (error) throw error
+            loadAuditTable()
+          } catch (err) {
+            console.error('Error al eliminar transacción:', err)
+            alert(`Error: ${err.message}\n\nSi ves "violates row-level security", ejecuta el SQL de permisos en Supabase (ver walkthrough.md).`)
+            btn.disabled = false
+            btn.textContent = '×'
+          }
+        }
+      }
+    })
   }
 
   // --- Modales (Apertura/Cierre) ---

@@ -181,7 +181,9 @@ h1 {
   background: #FFF;
   border: 1px solid var(--border-clean);
   border-radius: 8px;
-  overflow: hidden;
+  max-height: 60vh;
+  overflow-y: auto;
+  overflow-x: auto;
 }
 
 .data-table {
