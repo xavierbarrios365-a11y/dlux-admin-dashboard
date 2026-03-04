@@ -407,9 +407,42 @@ document.addEventListener('DOMContentLoaded', () => {
   });
   document.getElementById('inventory-category-filter')?.addEventListener('change', loadProductsTable);
 
-  // Reports Filter Listeners
-  document.getElementById('report-date-start')?.addEventListener('change', loadReportsTable);
   document.getElementById('report-date-end')?.addEventListener('change', loadReportsTable);
+
+  // PDF Export Logic
+  document.getElementById('btn-export-pdf')?.addEventListener('click', () => {
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
+
+    const startDate = document.getElementById('report-date-start')?.value || 'Inicio';
+    const endDate = document.getElementById('report-date-end')?.value || 'Fin';
+
+    doc.setFontSize(18);
+    doc.text("D'Lux Admin - Reporte Contable", 14, 20);
+    doc.setFontSize(11);
+    doc.text(`Periodo: ${startDate} al ${endDate}`, 14, 30);
+
+    const rows = [];
+    document.querySelectorAll('#reports-tbody tr').forEach(tr => {
+      const cols = Array.from(tr.querySelectorAll('td')).map(td => td.innerText.trim());
+      if (cols.length > 0) rows.push(cols);
+    });
+
+    if (rows.length === 0) {
+      alert("No hay datos para exportar.");
+      return;
+    }
+
+    doc.autoTable({
+      startY: 35,
+      head: [['Fecha', 'Tipo', 'Categoría', 'Concepto', 'Monto', 'Método', 'Estado']],
+      body: rows,
+      theme: 'striped',
+      headStyles: { fillColor: [0, 0, 0] }
+    });
+
+    doc.save(`Reporte_Dlux_${startDate}_${endDate}.pdf`);
+  });
 
   // Gallery Preview Logic
   const imageGalleryPreview = document.getElementById('image-gallery-preview');
