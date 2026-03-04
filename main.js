@@ -1,3 +1,6 @@
+console.log("V4 LOADED - SYSTEM ACTIVE");
+window.v4 = true;
+// alert("VITE HMR: V4 RELOADED");
 import './style.css'
 import { supabase, getUserProfile } from './src/supabase.js'
 import { fetchProducts, createProduct, updateProduct, deleteProduct, uploadImageToCloudinary } from './src/inventory.js'
@@ -142,6 +145,55 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     })
   }
+
+  // --- Utilidades de UI (Custom Modals & Toasts) ---
+  const customModal = document.getElementById('custom-modal')
+  const customModalTitle = document.getElementById('custom-modal-title')
+  const customModalBody = document.getElementById('custom-modal-body')
+  const customModalFooter = document.getElementById('custom-modal-footer')
+  const customModalClose = document.getElementById('custom-modal-close')
+  const toastContainer = document.getElementById('toast-container')
+
+  function sanitizeFilename(name) {
+    return name.replace(/[:\\/<>*|?]/g, '-').replace(/\s+/g, '_');
+  }
+
+  function showToast(message, type = 'success') {
+    const toast = document.createElement('div')
+    toast.className = `toast ${type}`
+    toast.innerHTML = `<span>${message}</span>`
+    toastContainer.appendChild(toast)
+    setTimeout(() => {
+      toast.style.animation = 'fadeOut 0.5s ease forwards'
+      setTimeout(() => toast.remove(), 500)
+    }, 3000)
+  }
+
+  function showCustomModal(title, content) {
+    customModalTitle.textContent = title
+    customModalBody.innerHTML = content
+    customModalFooter.innerHTML = '<button id="modal-ok" class="btn btn-primary" style="width: auto;">Entendido</button>'
+    customModal.classList.add('custom-modal-active')
+    const okBtn = document.getElementById('modal-ok')
+    if (okBtn) okBtn.onclick = () => customModal.classList.remove('custom-modal-active')
+  }
+
+  function showCustomConfirm(title, message, onConfirm) {
+    customModalTitle.textContent = title
+    customModalBody.textContent = message
+    customModalFooter.innerHTML = `
+      <button id="confirm-cancel" class="btn btn-outline" style="width: auto;">Cancelar</button>
+      <button id="confirm-yes" class="btn btn-danger" style="width: auto;">Eliminar</button>
+    `
+    customModal.classList.add('custom-modal-active')
+    document.getElementById('confirm-cancel').onclick = () => customModal.classList.remove('custom-modal-active')
+    document.getElementById('confirm-yes').onclick = () => {
+      customModal.classList.remove('custom-modal-active')
+      onConfirm()
+    }
+  }
+
+  if (customModalClose) customModalClose.onclick = () => customModal.classList.remove('custom-modal-active')
 
   if (logoutBtn) logoutBtn.addEventListener('click', () => supabase.auth.signOut())
 
@@ -313,60 +365,151 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  // Delegación de eventos para la tabla de pedidos (Soluciona botones Ver/Eliminar)
-  if (ordersTbody) {
-    ordersTbody.addEventListener('click', async (e) => {
+  // === UNIFIED EVENT DELEGATION ===
+  console.log("DEBUG: Event delegator initialized on body");
+  document.body.addEventListener('click', async (e) => {
+    const target = e.target;
+    console.log("DEBUG: Click detected on:", target.tagName, "Class:", target.className, "ID:", target.id);
 
-      // ----- Botón ELIMINAR -----
-      const btnDelete = e.target.closest('.delete-order')
-      if (btnDelete) {
-        if (confirm('¿Eliminar este pedido permanentemente? Esta acción no se puede deshacer.')) {
+    // ----- Botón ELIMINAR Pedido -----
+    const btnDelete = target.closest('.delete-order')
+    if (btnDelete) {
+      showCustomConfirm(
+        'Confirmar Eliminación',
+        '¿Estás seguro de que deseas eliminar este pedido permanentemente? Esta acción no se puede deshacer.',
+        async () => {
           const id = btnDelete.getAttribute('data-id')
           btnDelete.disabled = true
           btnDelete.textContent = '...'
+
           try {
             const { error } = await supabase.from('orders').delete().eq('id', id)
             if (error) throw error
-            loadOrdersTable()
+            await loadOrdersTable()
+            showToast('Pedido eliminado correctamente', 'success')
           } catch (err) {
-            console.error('Error al eliminar pedido:', err)
-            alert(`Error al eliminar: ${err.message}\n\nSi ves "violates row-level security", ejecuta el SQL de permisos en Supabase (ver walkthrough.md).`)
-            btnDelete.disabled = false
-            btnDelete.textContent = 'Eliminar'
+            console.error('Error al eliminar:', err)
+            showToast(`Error: ${err.message}`, 'error')
+          } finally {
+            if (btnDelete && document.body.contains(btnDelete)) {
+              btnDelete.disabled = false
+              btnDelete.textContent = 'Eliminar'
+            }
           }
         }
-        return
+      )
+      return
+    }
+
+    // ----- Botón VER Pedido -----
+    const btnView = target.closest('.view-order')
+    if (btnView) {
+      const id = btnView.getAttribute('data-id')
+      console.log("DEBUG: Processing .view-order click. Fetching ID:", id);
+      try {
+        console.log("DEBUG: Calling Supabase table 'orders'...");
+        const { data: order, error } = await supabase.from('orders').select('*').eq('id', id).single()
+
+        if (error) {
+          console.error("DEBUG: Supabase error observed:", error);
+          throw error
+        }
+
+        console.log("DEBUG: Data received successfully:", order);
+        const items = order.items || []
+        const itemLines = items.map(i => `<li><strong>${i.name}</strong> x${i.quantity} - $${(i.total || 0).toFixed(2)}</li>`).join('')
+
+        const content = `
+          <div style="border-left: 4px solid #000; padding-left: 1rem; margin-bottom: 1.5rem;">
+            <p><strong>Cliente:</strong> ${order.customer_name || 'N/A'}</p>
+            <p><strong>Cédula:</strong> ${order.customer_doc || 'N/A'}</p>
+            <p><strong>Teléfono:</strong> ${order.customer_phone || 'N/A'}</p>
+            <p><strong>Fecha:</strong> ${new Date(order.created_at).toLocaleString()}</p>
+            <p><strong>Estado:</strong> <span class="badge ${order.status === 'paid' ? 'badge-success' : 'badge-warning'}">${order.status?.toUpperCase()}</span></p>
+          </div>
+          <p><strong>Artículos:</strong></p>
+          <ul style="margin-top: 0.5rem; margin-bottom: 1.5rem; padding-left: 1.2rem;">${itemLines}</ul>
+          <div style="text-align: right; border-top: 1px solid #EEE; padding-top: 1rem;">
+            <p style="font-size: 1.2rem; font-weight: 800;">TOTAL: $${(order.total_amount || order.total || 0).toFixed(2)}</p>
+            ${order.notes ? `<p style="font-size: 0.8rem; color: #666; margin-top: 0.5rem;"><em>${order.notes}</em></p>` : ''}
+          </div>
+        `;
+        console.log("DEBUG: Finalizing modal content. Opening modal...");
+        showCustomModal('Detalle de Venta', content)
+      } catch (err) {
+        console.error("DEBUG: Error block in btnView reached:", err);
+        showToast('Error al cargar detalle: ' + err.message, 'error')
+      }
+      return
+    }
+
+    // ---- Eliminar Registro Auditoría ----
+    const btnDeleteTrans = target.closest('.delete-trans')
+    if (btnDeleteTrans) {
+      showCustomConfirm(
+        'Eliminar Registro',
+        '¿Deseas eliminar este registro financiero? Nota: Esto no afectará el stock automáticamente.',
+        async () => {
+          const transId = btnDeleteTrans.getAttribute('data-id')
+          btnDeleteTrans.disabled = true
+          try {
+            const { error } = await supabase.from('transactions').delete().eq('id', transId)
+            if (error) throw error
+            await loadAuditTable()
+            showToast('Registro eliminado', 'success')
+          } catch (err) {
+            console.error('Error:', err)
+            showToast(err.message, 'error')
+          } finally {
+            if (btnDeleteTrans && document.body.contains(btnDeleteTrans)) btnDeleteTrans.disabled = false
+          }
+        }
+      )
+      return
+    }
+
+    // ---- Exportar PDF de Auditoría ----
+    const btnExportAuditPdf = target.closest('#btn-export-audit-pdf')
+    if (btnExportAuditPdf) {
+      const { jsPDF } = window.jspdf;
+      if (!jsPDF) {
+        showToast("Error: Librería PDF no cargada", "error");
+        return;
+      }
+      showToast("Generando PDF...", "info");
+      const doc = new jsPDF();
+
+      doc.setFontSize(18);
+      doc.text("D'Lux Admin - Auditoría de Movimientos", 14, 20);
+      doc.setFontSize(11);
+      doc.text(`Generado: ${new Date().toLocaleString()}`, 14, 30);
+
+      const rows = [];
+      document.querySelectorAll('#audit-tbody tr').forEach(tr => {
+        const cols = Array.from(tr.querySelectorAll('td')).map(td => td.innerText.trim());
+        if (cols.length > 0 && cols[0] !== "Cargando auditoría...") {
+          rows.push(cols.slice(0, -1));
+        }
+      });
+
+      if (rows.length === 0) {
+        showToast("No hay datos para exportar", "warning");
+        return;
       }
 
-      // ----- Botón VER -----
-      const btnView = e.target.closest('.view-order')
-      if (btnView) {
-        const id = btnView.getAttribute('data-id')
-        try {
-          const { data: order, error } = await supabase.from('orders').select('*').eq('id', id).single()
-          if (error) throw error
-          const items = order.items || []
-          const itemLines = items.map(i => `• ${i.name} x${i.quantity} = $${(i.total || 0).toFixed(2)}`).join('\n')
-          alert(
-            `📋 DETALLE DE VENTA
-─────────────────────────────
-Cliente: ${order.customer_name || 'N/A'}
-Cédula:  ${order.customer_doc || 'N/A'}
-Teléfono:${order.customer_phone || 'N/A'}
-Fecha:   ${new Date(order.created_at).toLocaleString()}
-Estado:  ${order.status?.toUpperCase()}
-─────────────────────────────
-${itemLines}
-─────────────────────────────
-TOTAL:   $${(order.total_amount || order.total || 0).toFixed(2)}
-${order.notes ? 'Notas: ' + order.notes : ''}`
-          )
-        } catch (err) {
-          alert('No se pudo cargar el detalle: ' + err.message)
-        }
-      }
-    })
-  }
+      doc.autoTable({
+        startY: 35,
+        head: [['Fecha', 'Tipo', 'Concepto', 'Justificación', 'Monto']],
+        body: rows,
+        theme: 'striped',
+        headStyles: { fillColor: [0, 0, 0] }
+      });
+
+      doc.save(sanitizeFilename(`Auditoria_Dlux_${Date.now()}.pdf`));
+      showToast("PDF Descargado", "success");
+      return
+    }
+  })
 
 
   // --- Lógica del Modal de Ventas ---
@@ -777,7 +920,7 @@ ${order.notes ? 'Notas: ' + order.notes : ''}`
       headStyles: { fillColor: [0, 0, 0] }
     });
 
-    doc.save(`Reporte_Dlux_${startDate}_${endDate}.pdf`);
+    doc.save(sanitizeFilename(`Reporte_Dlux_${startDate}_${endDate}.pdf`));
   });
 
   // --- Dashboard Home ---
@@ -936,7 +1079,7 @@ ${order.notes ? 'Notas: ' + order.notes : ''}`
     doc.line(110, 110, 190, 110)
     doc.text("Firma Autorizada Admin", 110, 115)
 
-    doc.save(`salida_${productName.replace(/\s+/g, '_')}.pdf`)
+    doc.save(sanitizeFilename(`salida_${productName}.pdf`))
   }
 
   // --- Tasa de Cambio DolarAPI ---
@@ -988,30 +1131,196 @@ ${order.notes ? 'Notas: ' + order.notes : ''}`
     }
   }
 
-  // Delegación de eventos para auditoría (Soluciona botón × inactivo)
-  const auditTbody = document.getElementById('audit-tbody')
-  if (auditTbody) {
-    auditTbody.addEventListener('click', async (e) => {
-      const btn = e.target.closest('.delete-trans')
-      if (btn) {
-        if (confirm('¿Eliminar este registro financiero?\nAdvertencia: Esto NO revertirá el stock automáticamente.')) {
-          const transId = btn.getAttribute('data-id')
-          btn.disabled = true
-          btn.textContent = '...'
-          try {
-            const { error } = await supabase.from('transactions').delete().eq('id', transId)
-            if (error) throw error
-            loadAuditTable()
-          } catch (err) {
-            console.error('Error al eliminar transacción:', err)
-            alert(`Error: ${err.message}\n\nSi ves "violates row-level security", ejecuta el SQL de permisos en Supabase (ver walkthrough.md).`)
-            btn.disabled = false
-            btn.textContent = '×'
+  // Delegación de eventos para auditoría (Soluciona botón × inactivo y PDF)
+  document.body.addEventListener('click', async (e) => {
+    // ---- Eliminar Registro ----
+    const btnDeleteTrans = e.target.closest('.delete-trans')
+    if (btnDeleteTrans) {
+      console.log('Trace: Delete transaction button clicked');
+      if (confirm('¿Eliminar este registro financiero?\nAdvertencia: Esto NO revertirá el stock automáticamente.')) {
+        const transId = btnDeleteTrans.getAttribute('data-id')
+        btnDeleteTrans.disabled = true
+        btnDeleteTrans.textContent = '...'
+        try {
+          const { error } = await supabase.from('transactions').delete().eq('id', transId)
+          if (error) throw error
+          loadAuditTable()
+          alert('Registro eliminado exitosamente.')
+        } catch (err) {
+          console.error('Error al eliminar transacción:', err)
+          alert(`Error: ${err.message}\n\nRevisa la conexión o permisos.`)
+        } finally {
+          if (btnDeleteTrans && document.body.contains(btnDeleteTrans)) {
+            btnDeleteTrans.disabled = false
+            btnDeleteTrans.textContent = '×'
           }
         }
       }
-    })
-  }
+      return
+    }
+
+    // ---- Exportar PDF de Auditoría ----
+    const btnExportAuditPdf = e.target.closest('#btn-export-audit-pdf')
+    if (btnExportAuditPdf) {
+      console.log('Trace: Export audit PDF button clicked');
+      const { jsPDF } = window.jspdf;
+      if (!jsPDF) {
+        alert("Error: jsPDF no está cargado.");
+        return;
+      }
+      const doc = new jsPDF();
+
+      doc.setFontSize(18);
+      doc.text("D'Lux Admin - Auditoría de Movimientos", 14, 20);
+      doc.setFontSize(11);
+      doc.text(`Generado: ${new Date().toLocaleString()}`, 14, 30);
+
+      const rows = [];
+      document.querySelectorAll('#audit-tbody tr').forEach(tr => {
+        const cols = Array.from(tr.querySelectorAll('td')).map(td => td.innerText.trim());
+        // Excluir la última columna (acciones)
+        if (cols.length > 0) {
+          rows.push(cols.slice(0, -1));
+        }
+      });
+
+      if (rows.length === 0 || (rows.length === 1 && rows[0][0].includes("Cargando"))) {
+        alert("No hay datos de auditoría para exportar.");
+        return;
+      }
+
+      doc.autoTable({
+        startY: 35,
+        head: [['Fecha', 'Tipo', 'Concepto', 'Justificación', 'Monto']],
+        body: rows,
+        theme: 'striped',
+        headStyles: { fillColor: [0, 0, 0] }
+      });
+
+      doc.save(sanitizeFilename(`Auditoria_Dlux_${Date.now()}.pdf`));
+      return
+    }
+
+    // ---- Abrir Modal de Salida de Inventario ----
+    const btnInventoryExit = e.target.closest('#btn-inventory-exit')
+    if (btnInventoryExit) {
+      console.log('Trace: Inventory Exit button clicked');
+      const prods = await fetchProducts()
+      const select = document.getElementById('exit-product')
+      if (select) {
+        select.innerHTML = '<option value="">Seleccione producto...</option>'
+        prods.forEach(p => {
+          const opt = document.createElement('option')
+          opt.value = p.id
+          opt.textContent = `${p.name} (Stock: ${p.stock})`
+          select.appendChild(opt)
+        })
+      }
+      if (exitModal) exitModal.style.display = 'flex'
+      return
+    }
+
+    // ---- Cerrar Modal de Salida de Inventario ----
+    const closeExitModal = e.target.closest('#close-exit-modal')
+    if (closeExitModal) {
+      console.log('Trace: Close Exit Modal button clicked');
+      if (exitModal) exitModal.style.display = 'none'
+      return
+    }
+
+    // ---- Sincronizar Tasa de Cambio ----
+    const btnSyncRate = e.target.closest('#btn-sync-rate')
+    if (btnSyncRate) {
+      console.log('Trace: Sync Exchange Rate button clicked');
+      syncExchangeRate()
+      return
+    }
+
+    // ---- Cerrar Modal de Producto ----
+    const closeModalBtn = e.target.closest('#close-modal-btn')
+    if (closeModalBtn) {
+      console.log('Trace: Close Product Modal button clicked');
+      if (productModal) productModal.style.display = 'none'
+      return
+    }
+
+    // ---- Abrir Modal de Nuevo Producto ----
+    const btnNewProduct = e.target.closest('#btn-new-product')
+    if (btnNewProduct) {
+      console.log('Trace: New Product button clicked');
+      if (productForm) productForm.reset()
+      const prodIdEl = document.getElementById('prod-id')
+      if (prodIdEl) prodIdEl.value = ''
+      const modalTitleEl = document.getElementById('modal-title')
+      if (modalTitleEl) modalTitleEl.textContent = 'Nuevo Producto'
+      const deleteBtn = document.getElementById('delete-product-btn')
+      if (deleteBtn) deleteBtn.style.display = 'none'
+      const gallery = document.getElementById('image-gallery-preview')
+      if (gallery) gallery.innerHTML = ''
+      if (productModal) productModal.style.display = 'flex'
+      return
+    }
+
+    // ---- Eliminar Producto ----
+    const deleteProductBtn = e.target.closest('#delete-product-btn')
+    if (deleteProductBtn) {
+      console.log('Trace: Delete Product button clicked');
+      const id = document.getElementById('prod-id').value
+      if (id && confirm('¿Seguro que desea eliminar este producto?')) {
+        try {
+          await deleteProduct(id)
+          if (productModal) productModal.style.display = 'none'
+          loadProductsTable()
+        } catch (err) {
+          const productError = document.getElementById('product-error')
+          if (productError) productError.textContent = err.message
+        }
+      }
+      return
+    }
+
+    // ---- Abrir Modal de Nuevo Usuario ----
+    const btnNewUser = e.target.closest('#btn-new-user')
+    if (btnNewUser) {
+      console.log('Trace: New User button clicked');
+      const userForm = document.getElementById('user-form')
+      const userModal = document.getElementById('user-modal')
+      if (userForm) userForm.reset()
+      if (userModal) userModal.style.display = 'flex'
+      return
+    }
+
+    // ---- Cerrar Modal de Usuario ----
+    const closeUserModal = e.target.closest('#close-user-modal')
+    if (closeUserModal) {
+      console.log('Trace: Close User Modal button clicked');
+      const userModal = document.getElementById('user-modal')
+      if (userModal) userModal.style.display = 'none'
+      return
+    }
+
+    // ---- Cambiar Rol de Usuario ----
+    const changeRoleBtn = e.target.closest('.change-role')
+    if (changeRoleBtn) {
+      console.log('Trace: Change Role button clicked');
+      const userId = changeRoleBtn.getAttribute('data-id')
+      const currentRole = changeRoleBtn.getAttribute('data-role')
+      const newRole = currentRole === 'admin' ? 'seller' : 'admin'
+
+      if (confirm(`¿Cambiar el rol de este usuario a ${newRole.toUpperCase()}?`)) {
+        try {
+          const { error } = await supabase.from('profiles').update({ role: newRole }).eq('id', userId)
+          if (error) throw error
+          loadUsersTable()
+          alert('Rol de usuario actualizado.')
+        } catch (err) {
+          console.error('Error al cambiar rol:', err)
+          alert(`Error: ${err.message}`)
+        }
+      }
+      return
+    }
+  })
 
   // --- Modales (Apertura/Cierre) ---
   function openEditModal(p) {

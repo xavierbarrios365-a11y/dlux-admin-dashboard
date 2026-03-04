@@ -4,7 +4,9 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>D'Lux Admin Dashboard</title>
+    <meta http-equiv="Content-Security-Policy"
+        content="default-src 'self' *; script-src 'self' 'unsafe-inline' 'unsafe-eval' *; style-src 'self' 'unsafe-inline' *; font-src 'self' data: *; img-src 'self' data: *; connect-src 'self' *;">
+    <title>D'Lux Admin Dashboard V4</title>
     <link rel="stylesheet" href="style.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
@@ -33,7 +35,7 @@
         <!-- Dashboard Section (Hidden by default) -->
         <div id="dashboard-container" style="display: none;">
             <nav class="sidebar">
-                <div class="logo">D'Lux Admin</div>
+                <div class="logo">D'Lux V4 - READY</div>
                 <nav class="sidebar-nav">
                     <ul>
                         <li><a href="#" class="active" data-target="home"><i class="icon-dashboard"></i> Dashboard</a>
@@ -279,6 +281,8 @@
                                 <p style="font-size: 0.8rem; color: var(--text-muted);">Verifique salidas de mercancía y
                                     corrija registros erróneos.</p>
                             </div>
+                            <button id="btn-export-audit-pdf" class="btn btn-primary" style="width: auto;">Exportar
+                                PDF</button>
                         </div>
                         <div class="table-container">
                             <table class="data-table">
@@ -760,16 +764,32 @@
                 </div>
                 <div id="user-error" class="error-msg" style="color: var(--danger); margin-top: 1rem;"></div>
             </form>
+        </div> <!-- End of user-modal -->
+    </div> <!-- END OF DASHBOARD-CONTAINER -->
+
+    <!-- Custom Modal System (Root Level) -->
+    <div id="custom-modal" class="custom-modal">
+        <div class="custom-modal-content">
+            <div class="custom-modal-header">
+                <h2 id="custom-modal-title">Título</h2>
+            </div>
+            <div id="custom-modal-body" class="custom-modal-body">
+                Contenido del mensaje...
+            </div>
+            <div class="custom-modal-footer" id="custom-modal-footer">
+                <button id="custom-modal-close" class="btn btn-outline" style="width: auto;">Cerrar</button>
+            </div>
         </div>
     </div>
+
+    <!-- Toast Container -->
+    <div id="toast-container" style="position: fixed; bottom: 2rem; right: 2rem; z-index: 10000;"></div>
 
     <!-- Import JSPDF for Reports -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
 
     <script type="module" src="/main.js"></script>
-
-
 </body>
 
 </html>
