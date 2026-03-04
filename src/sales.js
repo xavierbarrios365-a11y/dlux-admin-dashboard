@@ -114,3 +114,20 @@ export async function getFinancialSummary() {
         netProfit: totals.income - totals.expense
     }
 }
+
+export async function registerExpense(expenseData) {
+    const { concept, category, amount, userId } = expenseData
+    const { data, error } = await supabase
+        .from('transactions')
+        .insert([{
+            type: 'egreso',
+            category,
+            concept,
+            amount: parseFloat(amount),
+            created_by: userId
+        }])
+        .select()
+
+    if (error) return { success: false, error: error.message }
+    return { success: true, data }
+}

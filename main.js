@@ -2,7 +2,7 @@ import './style.css'
 import { supabase, getUserProfile } from './src/supabase.js'
 import { fetchProducts, createProduct, updateProduct, deleteProduct, uploadImageToCloudinary } from './src/inventory.js'
 import { fetchOrders, updateOrderStatus, deleteOrder } from './src/orders.js'
-import { registerSale, fetchTransactions, getFinancialSummary } from './src/sales.js'
+import { registerSale, registerExpense, fetchTransactions, getFinancialSummary } from './src/sales.js'
 
 // Initialize on DOM Ready to avoid null errors
 document.addEventListener('DOMContentLoaded', () => {
@@ -41,6 +41,13 @@ document.addEventListener('DOMContentLoaded', () => {
   const btnAddItem = document.getElementById('btn-add-item')
   const saleTotalDisplay = document.getElementById('sale-total-display')
   const salesError = document.getElementById('sales-error')
+
+  // Expense Modal Elements
+  const expenseModal = document.getElementById('expense-modal')
+  const btnNewExpense = document.getElementById('btn-new-expense')
+  const closeExpenseModalBtn = document.getElementById('close-expense-modal')
+  const expenseForm = document.getElementById('expense-form')
+  const expenseError = document.getElementById('expense-error')
 
   let currentUserRole = 'vendedor';
   let inventoryEditEnabled = false;
@@ -172,23 +179,22 @@ document.addEventListener('DOMContentLoaded', () => {
       const target = link.getAttribute('data-target');
 
       // Hide all views
-      if (viewHome) viewHome.style.display = 'none';
-      if (viewInventory) viewInventory.style.display = 'none';
-      if (viewOrders) viewOrders.style.display = 'none';
+      const views = document.querySelectorAll('.view-section');
+      views.forEach(v => v.style.display = 'none');
 
-      if (target === 'home') {
-        if (pageTitle) pageTitle.textContent = 'Dashboard';
-        if (viewHome) viewHome.style.display = 'block';
-        loadKpis();
-      } else if (target === 'inventory') {
-        if (pageTitle) pageTitle.textContent = 'Inventario';
-        if (viewInventory) viewInventory.style.display = 'block';
-        loadProductsTable();
-      } else if (target === 'orders') {
-        if (pageTitle) pageTitle.textContent = 'Pedidos';
-        if (viewOrders) viewOrders.style.display = 'block';
-        loadOrdersTable();
+      const targetView = document.getElementById(`view-${target}`);
+      if (targetView) targetView.style.display = 'block';
+
+      if (pageTitle) {
+        const titles = { home: 'Dashboard', inventory: 'Inventario', orders: 'Ventas / Pedidos', reports: 'Reportes', users: 'Usuarios' };
+        pageTitle.textContent = titles[target] || 'Dashboard';
       }
+
+      // Refresh Data
+      if (target === 'home') loadHomeData();
+      if (target === 'inventory') loadProductsTable();
+      if (target === 'orders') loadOrdersTable();
+      if (target === 'reports') loadReportsTable();
     });
   });
 
@@ -724,6 +730,55 @@ document.addEventListener('DOMContentLoaded', () => {
         loadHomeData(); // Refresh KPIs
       } else {
         salesError.innerText = result.error;
+      }
+    });
+  }
+
+  // --- Expense Flow ---
+  if (btnNewExpense) {
+    btnNewExpense.addEventListener('click', () => {
+      expenseModal.style.display = 'flex';
+    });
+  }
+
+  if (closeExpenseModalBtn) {
+    closeExpenseModalBtn.addEventListener('click', () => {
+      expenseModal.style.display = 'none';
+      if (expenseForm) expenseForm.reset();
+    });
+  }
+
+  if (expenseForm) {
+    expenseForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      expenseError.innerText = '';
+      const saveBtn = document.getElementById('save-expense-btn');
+      if (saveBtn) {
+        saveBtn.disabled = true;
+        saveBtn.innerText = 'Guardando...';
+      }
+
+      const { data: { user } } = await supabase.auth.getUser();
+      const expenseData = {
+        concept: document.getElementById('exp-concept').value,
+        category: document.getElementById('exp-category').value,
+        amount: document.getElementById('exp-amount').value,
+        userId: user.id
+      };
+
+      const result = await registerExpense(expenseData);
+      if (saveBtn) {
+        saveBtn.disabled = false;
+        saveBtn.innerText = 'Guardar Gasto';
+      }
+
+      if (result.success) {
+        expenseModal.style.display = 'none';
+        expenseForm.reset();
+        loadReportsTable();
+        loadHomeData();
+      } else {
+        expenseError.innerText = result.error;
       }
     });
   }
