@@ -579,7 +579,118 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // Initialize
+  // --- Sales Flow ---
+  let allProductsCache = [];
+
+  if (btnNewOrder) {
+    btnNewOrder.addEventListener('click', async () => {
+      salesModal.style.display = 'flex';
+      allProductsCache = await fetchProducts();
+      resetSalesForm();
+    });
+  }
+
+  if (closeSalesModalBtn) {
+    closeSalesModalBtn.addEventListener('click', () => {
+      salesModal.style.display = 'none';
+    });
+  }
+
+  if (btnAddItem) {
+    btnAddItem.addEventListener('click', () => addSaleRow());
+  }
+
+  function resetSalesForm() {
+    saleItemsContainer.innerHTML = '<label>Productos</label>';
+    addSaleRow();
+    if (salesForm) salesForm.reset();
+    updateSaleTotal();
+  }
+
+  function addSaleRow() {
+    const row = document.createElement('div');
+    row.className = 'sale-item-row';
+    row.style.display = 'flex';
+    row.style.gap = '0.5rem';
+    row.style.marginBottom = '0.5rem';
+
+    let options = '<option value="">Seleccionar producto...</option>';
+    allProductsCache.forEach(p => {
+      options += `<option value="${p.id}" data-price="${p.price}">${p.name} ($${p.price})</option>`;
+    });
+
+    row.innerHTML = `
+      <select class="sale-product-select" style="flex: 2;" required>${options}</select>
+      <input type="number" class="sale-quantity" placeholder="Cant" min="1" value="1" style="flex: 1;" required>
+      <button type="button" class="btn btn-outline btn-danger btn-small remove-item" style="width: auto;">&times;</button>
+    `;
+
+    saleItemsContainer.appendChild(row);
+
+    row.querySelector('.remove-item').addEventListener('click', () => {
+      if (saleItemsContainer.querySelectorAll('.sale-item-row').length > 1) {
+        row.remove();
+        updateSaleTotal();
+      }
+    });
+
+    row.querySelector('.sale-product-select').addEventListener('change', updateSaleTotal);
+    row.querySelector('.sale-quantity').addEventListener('input', updateSaleTotal);
+  }
+
+  function updateSaleTotal() {
+    let total = 0;
+    document.querySelectorAll('.sale-item-row').forEach(row => {
+      const select = row.querySelector('.sale-product-select');
+      const qty = row.querySelector('.sale-quantity').value;
+      const price = select.options[select.selectedIndex]?.getAttribute('data-price') || 0;
+      total += price * qty;
+    });
+    if (saleTotalDisplay) saleTotalDisplay.innerText = `Total: $${total.toFixed(2)}`;
+  }
+
+  if (salesForm) {
+    salesForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      salesError.innerText = '';
+      const saveBtn = document.getElementById('save-sale-btn');
+      if (saveBtn) {
+        saveBtn.disabled = true;
+        saveBtn.innerText = 'Procesando...';
+      }
+
+      const items = [];
+      document.querySelectorAll('.sale-item-row').forEach(row => {
+        const productId = row.querySelector('.sale-product-select').value;
+        const quantity = parseInt(row.querySelector('.sale-quantity').value);
+        if (productId) items.push({ productId, quantity });
+      });
+
+      const { data: { user } } = await supabase.auth.getUser();
+      const saleData = {
+        customer: document.getElementById('sale-customer').value,
+        notes: document.getElementById('sale-notes').value,
+        items,
+        userId: user.id
+      };
+
+      const result = await registerSale(saleData);
+      if (saveBtn) {
+        saveBtn.disabled = false;
+        saveBtn.innerText = 'Procesar Venta';
+      }
+
+      if (result.success) {
+        salesModal.style.display = 'none';
+        loadOrdersTable();
+        loadHomeData(); // Refresh KPIs
+      } else {
+        salesError.innerText = result.error;
+      }
+    });
+  }
+
+  // --- Initialize ---
   checkSession();
-  loadKpis();
+  loadHomeData();
 });
