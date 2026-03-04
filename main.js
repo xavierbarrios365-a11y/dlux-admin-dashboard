@@ -3,11 +3,6 @@ import { supabase } from './src/supabase.js'
 import { fetchProducts, createProduct, updateProduct, deleteProduct, uploadImageToCloudinary } from './src/inventory.js'
 import { fetchOrders, updateOrderStatus, deleteOrder } from './src/orders.js'
 
-import './style.css'
-import { supabase } from './src/supabase.js'
-import { fetchProducts, createProduct, updateProduct, deleteProduct, uploadImageToCloudinary } from './src/inventory.js'
-import { fetchOrders, updateOrderStatus, deleteOrder } from './src/orders.js'
-
 // Initialize on DOM Ready to avoid null errors
 document.addEventListener('DOMContentLoaded', () => {
   const loginContainer = document.getElementById('login-container')
