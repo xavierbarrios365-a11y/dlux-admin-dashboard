@@ -822,6 +822,14 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('sale-currency')?.addEventListener('change', updateSaleTotal);
   document.getElementById('sale-rate')?.addEventListener('input', updateSaleTotal);
 
+  // Toggle due date visibility
+  document.getElementById('sale-status')?.addEventListener('change', (e) => {
+    const container = document.getElementById('due-date-container');
+    if (container) {
+      container.style.display = (e.target.value === 'pending' || e.target.value === 'partial') ? 'block' : 'none';
+    }
+  });
+
   if (salesForm) {
     salesForm.addEventListener('submit', async (e) => {
       e.preventDefault();
@@ -846,6 +854,8 @@ document.addEventListener('DOMContentLoaded', () => {
         currency: document.getElementById('sale-currency').value,
         exchangeRate: parseFloat(document.getElementById('sale-rate').value) || 1.0,
         paymentMethod: document.getElementById('sale-payment-method').value,
+        paymentStatus: document.getElementById('sale-status').value,
+        dueDate: document.getElementById('sale-due-date').value,
         items,
         userId: user.id
       };

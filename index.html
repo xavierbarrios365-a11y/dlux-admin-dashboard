@@ -329,6 +329,21 @@
                     </div>
                 </div>
 
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
+                    <div class="input-group">
+                        <label for="sale-status">Tipo de Venta</label>
+                        <select id="sale-status">
+                            <option value="completed" selected>Contado (Pagado)</option>
+                            <option value="pending">Crédito (Pendiente)</option>
+                            <option value="partial">Apartado (Pago Parcial)</option>
+                        </select>
+                    </div>
+                    <div class="input-group" id="due-date-container" style="display: none;">
+                        <label for="sale-due-date">Fecha de Vencimiento</label>
+                        <input type="date" id="sale-due-date">
+                    </div>
+                </div>
+
                 <div id="sale-items-container">
                     <label>Productos</label>
                     <div class="sale-item-row" style="display: flex; gap: 0.5rem; margin-bottom: 0.5rem;">

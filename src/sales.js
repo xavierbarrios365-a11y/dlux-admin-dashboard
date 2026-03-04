@@ -1,11 +1,12 @@
+```javascript
 import { supabase } from './supabase.js'
 
 /**
  * Register a manual sale and update inventory
- * @param {Object} saleData - { customer, items: [{ productId, quantity }], notes, userId, currency, exchangeRate, paymentMethod }
+ * @param {Object} saleData - { customer, items: [{ productId, quantity }], notes, userId, currency, exchangeRate, paymentMethod, paymentStatus, dueDate }
  */
 export async function registerSale(saleData) {
-    const { customer, items, notes, userId, currency, exchangeRate, paymentMethod } = saleData
+  const { customer, items, notes, userId, currency, exchangeRate, paymentMethod, paymentStatus, dueDate } = saleData
 
     try {
         // 1. Calculate total price and prepare order
@@ -20,9 +21,9 @@ export async function registerSale(saleData) {
                 .eq('id', item.productId)
                 .single()
 
-            if (pError || !product) throw new Error(`Producto no encontrado ID: ${item.productId} `)
+            if (pError || !product) throw new Error(`Producto no encontrado ID: ${ item.productId } `)
             if (product.stock < item.quantity) {
-                throw new Error(`Stock insuficiente para ${product.name}.Disponible: ${product.stock} `)
+                throw new Error(`Stock insuficiente para ${ product.name }.Disponible: ${ product.stock } `)
             }
 
             const itemTotal = product.price * item.quantity
@@ -42,7 +43,7 @@ export async function registerSale(saleData) {
             .insert([{
                 customer_name: customer,
                 total_amount: totalAmount,
-                status: 'paid', // Manual sales are usually paid immediately
+                status: paymentStatus || 'paid', // Use paymentStatus for order status
                 items: processedItems,
                 notes: notes,
                 created_by: userId
@@ -71,18 +72,33 @@ export async function registerSale(saleData) {
             await supabase.from('transactions').insert([{
                 type: 'ingreso',
                 category: 'venta',
-                concept: `Venta de ${item.quantity}x ${item.name} `,
+                concept: `Venta de ${ item.quantity }x ${ item.name } `,
                 amount: item.total,
                 currency: currency || 'USD',
                 exchange_rate: exchangeRate || 1.0,
                 amount_bs: (currency === 'USD' && exchangeRate) ? (item.total * exchangeRate) : (currency === 'BS' ? item.total : null),
                 payment_method: paymentMethod,
+                payment_status: paymentStatus || 'completed',
                 order_id: order.id,
                 created_by: userId
             }])
         }
 
-        return { success: true, order }
+        // 4. Handle Credits/Apartados if applicable
+        if (paymentStatus === 'pending' || paymentStatus === 'partial') {
+            // totalAmount is already calculated from processedItems
+            await supabase.from('credits').insert([{
+                customer_name: customer,
+                total_amount: totalAmount,
+                remaining_amount: totalAmount, // Assuming no initial payment for now
+                due_date: dueDate,
+                status: 'pending',
+                created_by: userId,
+                order_id: order.id // Link credit to the order
+            }]);
+        }
+
+        return { success: true, orderId: order.id }
 
     } catch (error) {
         console.error('Error registering sale:', error)
