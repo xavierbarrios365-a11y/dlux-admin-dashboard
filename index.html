@@ -72,7 +72,16 @@
                     <!-- Inventory View -->
                     <div id="view-inventory" class="view-section" style="display: none;">
                         <div class="view-header">
-                            <h2>Inventario</h2>
+                            <div>
+                                <h2>Inventario</h2>
+                                <div class="admin-only" style="display: none; margin-top: 0.5rem;">
+                                    <label class="switch-container"
+                                        style="font-size: 0.75rem; color: var(--text-muted); display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+                                        <input type="checkbox" id="toggle-inventory-edit"> Habilitar edición para
+                                        Vendedores
+                                    </label>
+                                </div>
+                            </div>
                             <button id="btn-new-product" class="btn btn-primary">+ Nuevo Producto</button>
                         </div>
                         <div class="table-container">
@@ -96,6 +105,7 @@
                     <div id="view-orders" class="view-section" style="display: none;">
                         <div class="view-header">
                             <h2>Pedidos / Ventas</h2>
+                            <button id="btn-new-order" class="btn btn-primary">+ Registrar Venta</button>
                         </div>
                         <div class="table-container">
                             <table class="data-table">
@@ -203,6 +213,48 @@
             </form>
         </div>
     </div>
+    <!-- Sales Modal -->
+    <div id="sales-modal" class="modal" style="display: none;">
+        <div class="modal-content" style="width: 600px;">
+            <div class="modal-header">
+                <h3>Registrar Venta (WhatsApp Sync)</h3>
+                <button id="close-sales-modal"
+                    style="background:none; border:none; font-size:1.5rem; cursor:pointer;">&times;</button>
+            </div>
+            <form id="sales-form">
+                <div class="input-group">
+                    <label for="sale-customer">Nombre del Cliente</label>
+                    <input type="text" id="sale-customer" required placeholder="Ej: Maria Perez">
+                </div>
+                <div id="sale-items-container">
+                    <label>Productos</label>
+                    <div class="sale-item-row" style="display: flex; gap: 0.5rem; margin-bottom: 0.5rem;">
+                        <select class="sale-product-select" style="flex: 2;" required>
+                            <option value="">Seleccionar producto...</option>
+                        </select>
+                        <input type="number" class="sale-quantity" placeholder="Cant" min="1" value="1" style="flex: 1;"
+                            required>
+                        <button type="button" class="btn btn-outline btn-danger btn-small remove-item"
+                            style="width: auto;">&times;</button>
+                    </div>
+                </div>
+                <button type="button" id="btn-add-item" class="btn btn-outline btn-small"
+                    style="margin-top: 0.5rem; width: auto;">+ Otro producto</button>
+
+                <div class="input-group" style="margin-top: 1.5rem;">
+                    <label for="sale-notes">Notas / Referencia WhatsApp</label>
+                    <textarea id="sale-notes" rows="2" placeholder="Opcional..."></textarea>
+                </div>
+
+                <div class="modal-footer">
+                    <h3 id="sale-total-display" style="margin-right: auto;">Total: $0.00</h3>
+                    <button type="submit" id="save-sale-btn" class="btn">Procesar Venta</button>
+                </div>
+                <div id="sales-error" class="error-msg" style="color: var(--danger); margin-top: 1rem;"></div>
+            </form>
+        </div>
+    </div>
+
     <script type="module" src="/main.js"></script>
 </body>
 

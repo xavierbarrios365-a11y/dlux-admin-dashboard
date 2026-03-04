@@ -71,6 +71,14 @@ document.addEventListener('DOMContentLoaded', () => {
     updateInventoryUIState();
   }
 
+  const toggleInvEdit = document.getElementById('toggle-inventory-edit');
+  if (toggleInvEdit) {
+    toggleInvEdit.addEventListener('change', (e) => {
+      inventoryEditEnabled = e.target.checked;
+      updateInventoryUIState();
+    });
+  }
+
   function updateInventoryUIState() {
     const canEdit = (currentUserRole === 'admin' || inventoryEditEnabled);
     if (btnNewProduct) btnNewProduct.style.display = canEdit ? 'block' : 'none';
@@ -271,6 +279,8 @@ document.addEventListener('DOMContentLoaded', () => {
           if (product) openEditModal(product);
         });
       });
+
+      updateInventoryUIState(); // Re-apply visibility based on current permissions
 
     } catch (error) {
       productsTbody.innerHTML = '<tr><td colspan="6" style="text-align: center; padding: 2rem; color: var(--danger);">Error al cargar productos. Por favor intente de nuevo.</td></tr>';
