@@ -503,8 +503,14 @@ document.addEventListener('DOMContentLoaded', () => {
         tr.innerHTML = `
           <td><small>${t.id.substring(0, 8)}</small></td>
           <td><span class="badge ${badgeClass}">${t.type}</span></td>
-          <td>${t.concept}</td>
-          <td style="font-weight: 700;">$${t.amount.toFixed(2)}</td>
+          <td>
+            <div style="font-weight: 600;">${t.concept}</div>
+            <div style="font-size: 0.7rem; color: var(--text-muted);">${t.payment_method || 'N/A'}</div>
+          </td>
+          <td style="font-weight: 700;">
+            ${t.currency === 'USD' ? '$' : 'Bs.'}${t.amount.toFixed(2)}
+            ${t.amount_bs ? `<br><small style="color:var(--text-muted); font-weight:normal;">(Bs. ${t.amount_bs.toFixed(2)})</small>` : ''}
+          </td>
           <td>${dateStr}</td>
         `;
         reportsTbody.appendChild(tr);
