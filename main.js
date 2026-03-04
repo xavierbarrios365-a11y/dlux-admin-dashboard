@@ -721,7 +721,28 @@ document.addEventListener('DOMContentLoaded', () => {
       total += price * qty;
     });
     if (saleTotalDisplay) saleTotalDisplay.innerText = `Total: $${total.toFixed(2)}`;
+
+    // Update BS Total
+    const rateEl = document.getElementById('sale-rate');
+    const currencyEl = document.getElementById('sale-currency');
+    const bsDisplayEl = document.getElementById('sale-total-bs-display');
+
+    if (rateEl && bsDisplayEl && currencyEl) {
+      const rate = parseFloat(rateEl.value) || 0;
+      const isBS = currencyEl.value === 'BS';
+
+      if (isBS) {
+        bsDisplayEl.innerText = `(USD $${(total / (rate || 1)).toFixed(2)})`;
+        if (saleTotalDisplay) saleTotalDisplay.innerText = `Total: Bs. ${total.toFixed(2)}`;
+      } else {
+        bsDisplayEl.innerText = `(Bs. ${(total * rate).toFixed(2)})`;
+      }
+    }
   }
+
+  // Add listeners for currency and rate
+  document.getElementById('sale-currency')?.addEventListener('change', updateSaleTotal);
+  document.getElementById('sale-rate')?.addEventListener('input', updateSaleTotal);
 
   if (salesForm) {
     salesForm.addEventListener('submit', async (e) => {
@@ -744,6 +765,9 @@ document.addEventListener('DOMContentLoaded', () => {
       const saleData = {
         customer: document.getElementById('sale-customer').value,
         notes: document.getElementById('sale-notes').value,
+        currency: document.getElementById('sale-currency').value,
+        exchangeRate: parseFloat(document.getElementById('sale-rate').value) || 1.0,
+        paymentMethod: document.getElementById('sale-payment-method').value,
         items,
         userId: user.id
       };
@@ -793,6 +817,7 @@ document.addEventListener('DOMContentLoaded', () => {
         concept: document.getElementById('exp-concept').value,
         category: document.getElementById('exp-category').value,
         amount: document.getElementById('exp-amount').value,
+        paymentMethod: document.getElementById('exp-payment-method').value,
         userId: user.id
       };
 
