@@ -63,16 +63,19 @@ document.addEventListener('DOMContentLoaded', () => {
   window.currentExchangeRate = 1.0;
 
   function formatCurrency(amountUSD, paymentMethod = null) {
+    const rate = window.currentExchangeRate || 1.0;
     const isBs = ['Bs', 'Pago Movil', 'Transferencia Bs', 'Efectivo Bs'].includes(paymentMethod);
-    const amountBs = (amountUSD * window.currentExchangeRate).toFixed(2);
-    const amountUSDFmt = amountUSD.toFixed(2);
+    const amountBs = (amountUSD * rate).toFixed(2);
+    const amountUSDFmt = parseFloat(amountUSD).toFixed(2);
 
     if (isBs) {
       return `Bs. ${amountBs} <small style="color:var(--text-muted)">($${amountUSDFmt})</small>`;
-    } else if (paymentMethod) {
-      return `$${amountUSDFmt}`;
     } else {
-      return `$${amountUSDFmt} <span style="font-size:0.7em; color:var(--text-muted)">(Ref: Bs. ${amountBs})</span>`;
+      // For USD or general reference, show both if rate > 1
+      if (rate > 1) {
+        return `$${amountUSDFmt} <span style="font-size:0.8em; color:var(--text-muted); display:block;">(Ref: Bs. ${amountBs})</span>`;
+      }
+      return `$${amountUSDFmt}`;
     }
   }
 
@@ -83,6 +86,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const profile = await getUserProfile(session.user.id)
       currentUserRole = profile?.role || 'vendedor'
       allProducts = await fetchProducts() // Cargar cache inicial
+      await syncExchangeRate() // Carga inicial de la tasa
       showDashboard(session.user)
       applyPermissions(currentUserRole)
       loadHomeData()
