@@ -89,7 +89,7 @@ document.addEventListener('DOMContentLoaded', () => {
       await syncExchangeRate() // Carga inicial de la tasa
       showDashboard(session.user)
       applyPermissions(currentUserRole)
-      loadHomeData()
+      setTimeout(loadHomeData, 100) // Give it a moment for layout to settle
     } else {
       showLogin()
     }
@@ -270,7 +270,7 @@ document.addEventListener('DOMContentLoaded', () => {
         pageTitle.textContent = titles[target] || 'Dashboard'
       }
 
-      if (target === 'home') loadHomeData()
+      if (target === 'home') setTimeout(loadHomeData, 50)
       if (target === 'inventory') loadProductsTable()
       if (target === 'orders') loadOrdersTable()
       if (target === 'reports') loadReportsTable()
@@ -1400,8 +1400,38 @@ document.addEventListener('DOMContentLoaded', () => {
       if (modalTitleEl) modalTitleEl.textContent = 'Nuevo Producto'
       const deleteBtn = document.getElementById('delete-product-btn')
       if (deleteBtn) deleteBtn.style.display = 'none'
-      const gallery = document.getElementById('image-gallery-preview')
-      if (gallery) gallery.innerHTML = ''
+      // --- Mobile Sidebar Toggle ---
+      const mobileMenuBtn = document.getElementById('mobile-menu-btn') || document.querySelector('.mobile-menu-btn')
+      const mobileOverlay = document.getElementById('mobile-overlay')
+      const sidebar = document.querySelector('.sidebar')
+
+      function toggleMobileMenu() {
+        if (!sidebar) return
+        sidebar.classList.toggle('sidebar-open')
+        if (mobileOverlay) mobileOverlay.classList.toggle('active')
+
+        // Lock Body Scroll when menu is open
+        if (sidebar.classList.contains('sidebar-open')) {
+          document.body.classList.add('lock-scroll')
+          document.documentElement.classList.add('lock-scroll')
+        } else {
+          document.body.classList.remove('lock-scroll')
+          document.documentElement.classList.remove('lock-scroll')
+        }
+      }
+
+      if (mobileMenuBtn) mobileMenuBtn.onclick = toggleMobileMenu
+      if (mobileOverlay) mobileOverlay.onclick = toggleMobileMenu
+
+      // Close menu on nav click
+      document.querySelectorAll('.sidebar a').forEach(link => {
+        link.addEventListener('click', () => {
+          sidebar?.classList.remove('sidebar-open')
+          mobileOverlay?.classList.remove('active')
+          document.body.classList.remove('lock-scroll')
+          document.documentElement.classList.remove('lock-scroll')
+        })
+      })
       if (productModal) productModal.style.display = 'flex'
       return
     }

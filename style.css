@@ -27,10 +27,26 @@
   font-family: var(--font-sans);
 }
 
+html,
+body {
+  overflow-x: hidden !important;
+  width: 100% !important;
+  /* Use 100% instead of 100vw to avoid scrollbar drift */
+  margin: 0;
+  padding: 0;
+  position: relative;
+}
+
+html.lock-scroll,
+body.lock-scroll {
+  overflow: hidden !important;
+  height: 100% !important;
+  position: relative;
+}
+
 body {
   background-color: var(--bg-main);
   color: var(--text-main);
-  overflow: hidden;
   height: 100vh;
   -webkit-font-smoothing: antialiased;
 }
@@ -69,7 +85,6 @@ body {
 }
 
 .sidebar-nav {
-  margin: 0 -0.5rem;
   flex: 1;
 }
 
@@ -190,7 +205,11 @@ header h1 {
   letter-spacing: -0.04em;
 }
 
-/* Charts - Stacked with better mobile logic */
+#income-breakdown div {
+  margin-bottom: 4px;
+}
+
+/* Charts */
 .card-chart-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -206,16 +225,21 @@ header h1 {
   border-radius: 16px;
   box-shadow: var(--shadow-sm);
   border: 1px solid var(--border-clean);
+  overflow: hidden;
 }
 
-/* Tables - Professional Standard */
+.chart-card canvas {
+  width: 100% !important;
+  height: 100% !important;
+}
+
+/* Tables */
 .table-container {
   background: var(--bg-card);
   border-radius: 16px;
   border: 1px solid var(--border-clean);
   box-shadow: var(--shadow-sm);
   overflow: hidden;
-  margin-top: 1rem;
 }
 
 .data-table {
@@ -231,7 +255,6 @@ header h1 {
   font-weight: 700;
   color: var(--text-muted);
   text-transform: uppercase;
-  letter-spacing: 0.05em;
   border-bottom: 1px solid var(--border-clean);
 }
 
@@ -242,63 +265,7 @@ header h1 {
   color: #1E293B;
 }
 
-.data-table tr:hover td {
-  background: #F8FAFC;
-}
-
-/* Badges */
-.badge {
-  padding: 0.4rem 0.8rem;
-  border-radius: 8px;
-  font-size: 10px;
-  font-weight: 800;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-}
-
-.badge-success {
-  background: #DCFCE7;
-  color: #166534;
-}
-
-.badge-warning {
-  background: #FEF3C7;
-  color: #92400E;
-}
-
-.badge-danger {
-  background: #FEE2E2;
-  color: #991B1B;
-}
-
-/* Buttons */
-.btn {
-  padding: 0.85rem 1.5rem;
-  border-radius: 10px;
-  font-weight: 700;
-  transition: all 0.2s;
-  font-size: 14px;
-}
-
-.btn-primary,
-.btn {
-  background: #000;
-  color: #FFF;
-  border: none;
-}
-
-.btn:hover {
-  background: #1E293B;
-  transform: translateY(-1px);
-}
-
-.btn-outline {
-  background: transparent;
-  border: 1px solid #000;
-  color: #000;
-}
-
-/* Modals - Ultra Clean */
+/* Modals */
 .custom-modal {
   display: none;
   position: fixed;
@@ -307,8 +274,8 @@ header h1 {
   top: 0;
   width: 100%;
   height: 100%;
-  background: rgba(15, 23, 42, 0.4);
-  backdrop-filter: blur(12px);
+  background: rgba(15, 23, 42, 0.6);
+  backdrop-filter: blur(8px);
   align-items: center;
   justify-content: center;
 }
@@ -317,80 +284,37 @@ header h1 {
   background: #FFFFFF;
   border-radius: 24px;
   box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
-  border: none;
-  padding: 3rem;
+  padding: 2.5rem;
   width: 90%;
-  max-width: 600px;
-  animation: modalScale 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+  max-width: 550px;
 }
 
-@keyframes modalScale {
-  from {
-    transform: scale(0.95);
-    opacity: 0;
-  }
-
-  to {
-    transform: scale(1);
-    opacity: 1;
-  }
-}
-
-/* Mobile Base - Functional UI */
-.mobile-menu-btn {
-  display: none;
-  background: none;
-  border: none;
-  font-size: 1.5rem;
-  cursor: pointer;
-  z-index: 100;
-}
-
-.mobile-overlay {
-  display: none;
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100vw;
-  height: 100vh;
-  background: rgba(0, 0, 0, 0.5);
-  backdrop-filter: blur(4px);
-  z-index: 2500;
-}
-
-.mobile-overlay.active {
-  display: block;
+.custom-modal.custom-modal-active {
+  display: flex;
 }
 
 /* --- MOBILE BREAKPOINTS --- */
-@media (max-width: 1024px) {
-  .sidebar {
-    width: 240px;
-    min-width: 240px;
-  }
-}
-
 @media (max-width: 768px) {
+
+  html,
   body {
-    overflow: visible;
-    height: auto;
+    overflow-y: auto !important;
+    height: auto !important;
+  }
+
+  body.lock-scroll {
+    overflow: hidden !important;
+    position: fixed;
   }
 
   #app {
     flex-direction: column;
-    height: auto;
+    height: auto !important;
   }
 
-  header {
-    position: sticky;
-    top: 0;
-    padding: 0 1.5rem;
-    height: 64px;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
-  }
-
-  .mobile-menu-btn {
-    display: block;
+  #dashboard-container {
+    flex-direction: column !important;
+    width: 100%;
   }
 
   .sidebar {
@@ -400,16 +324,31 @@ header h1 {
     transform: translateX(-100%);
     width: 300px;
     z-index: 3000;
-    box-shadow: 20px 0 50px rgba(0, 0, 0, 0.3);
+    height: 100vh !important;
   }
 
   .sidebar.sidebar-open {
     transform: translateX(0);
   }
 
+  .content {
+    width: 100%;
+    height: auto !important;
+    overflow: visible !important;
+  }
+
+  header {
+    position: sticky;
+    top: 0;
+    padding: 0 1.5rem;
+    height: 64px;
+    background: #FFF;
+  }
+
   #main-content {
-    padding: 1.5rem;
-    overflow: visible;
+    padding: 1.5rem 1rem;
+    overflow: visible !important;
+    height: auto !important;
   }
 
   .kpi-grid {
@@ -422,32 +361,32 @@ header h1 {
   }
 
   .chart-card {
-    height: 320px;
+    height: 380px !important;
+    margin-bottom: 1.5rem;
   }
 
   .table-container {
-    margin: 0 -1.5rem;
+    margin: 1.5rem -1rem;
+    width: calc(100% + 2rem);
     border-radius: 0;
-    border-left: none;
-    border-right: none;
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
+    overflow-x: auto !important;
   }
 
   .data-table {
-    min-width: 850px;
+    min-width: 900px;
   }
 
   .view-header {
     flex-direction: column !important;
     align-items: flex-start !important;
     gap: 1.5rem;
+    margin-bottom: 2rem;
   }
 
   .header-actions {
     width: 100% !important;
     flex-direction: column !important;
-    gap: 0.75rem;
+    gap: 1rem;
   }
 
   .header-actions>* {
@@ -455,26 +394,20 @@ header h1 {
     margin: 0 !important;
   }
 
-  .search-box input {
-    width: 100% !important;
+  .mobile-menu-btn {
+    display: block;
   }
 
-  /* Prevent Overlaps */
-  h2,
-  h3,
-  .kpi-value {
-    word-break: break-word;
-    overflow-wrap: break-word;
+  /* Final fix for infinite bottom space */
+  #view-home,
+  #view-inventory,
+  #view-orders,
+  #view-reports,
+  #view-users,
+  #view-credits,
+  #view-payroll,
+  #view-audit {
+    height: auto !important;
+    min-height: auto !important;
   }
-}
-
-/* Design Polish */
-#toast-container {
-  z-index: 15000;
-}
-
-.toast {
-  border-radius: 12px;
-  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.2);
-  border: 1px solid rgba(255, 255, 255, 0.1);
 }
