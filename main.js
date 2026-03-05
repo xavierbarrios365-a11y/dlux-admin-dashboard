@@ -351,7 +351,10 @@ document.addEventListener('DOMContentLoaded', () => {
     })
   }
 
-  function renderProducts(products) {
+  let inventoryCurrentPage = 1;
+  const inventoryItemsPerPage = 10;
+
+  function renderProducts(products, page = 1) {
     const searchTerm = document.getElementById('inventory-search')?.value.toLowerCase() || ''
     const categoryFilter = document.getElementById('inventory-category-filter')?.value || 'all'
     const genderFilter = document.getElementById('inventory-gender-filter')?.value || 'all'
@@ -371,8 +374,18 @@ document.addEventListener('DOMContentLoaded', () => {
       return
     }
 
+    const totalPages = Math.ceil(filtered.length / inventoryItemsPerPage);
+    if (page < 1) page = 1;
+    if (page > totalPages) page = totalPages;
+    inventoryCurrentPage = page;
+
+    const startIndex = (page - 1) * inventoryItemsPerPage;
+    const endIndex = startIndex + inventoryItemsPerPage;
+    const paginatedItems = filtered.slice(startIndex, endIndex);
+
     productsTbody.innerHTML = ''
-    filtered.forEach(p => {
+
+    paginatedItems.forEach(p => {
       const tr = document.createElement('tr')
       let mainImg = 'https://placehold.co/60x60?text=DLUX'
       if (p.images && p.images.length > 0) mainImg = p.images[0]
@@ -404,6 +417,39 @@ document.addEventListener('DOMContentLoaded', () => {
       productsTbody.appendChild(tr)
     })
 
+    if (totalPages > 1) {
+      const tRow = document.createElement('tr');
+      const tCell = document.createElement('td');
+      tCell.colSpan = 6;
+      tCell.style.textAlign = 'center';
+      tCell.style.padding = '1.5rem';
+
+      const btnPrev = document.createElement('button');
+      btnPrev.className = 'btn btn-outline btn-small';
+      btnPrev.textContent = '« Anterior';
+      btnPrev.disabled = page === 1;
+      btnPrev.style.marginRight = '1rem';
+      btnPrev.onclick = () => renderProducts(products, page - 1);
+
+      const spanInfo = document.createElement('span');
+      spanInfo.textContent = `Página ${page} de ${totalPages} (${filtered.length} artículos)`;
+      spanInfo.style.fontWeight = '600';
+      spanInfo.style.fontSize = '0.9rem';
+
+      const btnNext = document.createElement('button');
+      btnNext.className = 'btn btn-outline btn-small';
+      btnNext.textContent = 'Siguiente »';
+      btnNext.disabled = page === totalPages;
+      btnNext.style.marginLeft = '1rem';
+      btnNext.onclick = () => renderProducts(products, page + 1);
+
+      tCell.appendChild(btnPrev);
+      tCell.appendChild(spanInfo);
+      tCell.appendChild(btnNext);
+      tRow.appendChild(tCell);
+      productsTbody.appendChild(tRow);
+    }
+
     document.querySelectorAll('.edit-btn').forEach(btn => {
       btn.addEventListener('click', (e) => {
         const id = e.target.getAttribute('data-id')
@@ -415,9 +461,9 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // --- Filtros de Inventario ---
-  document.getElementById('inventory-search')?.addEventListener('input', () => renderProducts(allProducts))
-  document.getElementById('inventory-category-filter')?.addEventListener('change', () => renderProducts(allProducts))
-  document.getElementById('inventory-gender-filter')?.addEventListener('change', () => renderProducts(allProducts))
+  document.getElementById('inventory-search')?.addEventListener('input', () => renderProducts(allProducts, 1))
+  document.getElementById('inventory-category-filter')?.addEventListener('change', () => renderProducts(allProducts, 1))
+  document.getElementById('inventory-gender-filter')?.addEventListener('change', () => renderProducts(allProducts, 1))
 
   // --- Lógica de Pedidos ---
   async function loadOrdersTable() {
@@ -440,12 +486,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
       ordersTbody.innerHTML = orders.length ? '' : '<tr><td colspan="6" style="text-align: center;">No hay pedidos registrados.</td></tr>'
       orders.forEach(o => {
+        const orderTotal = o.total_amount || o.total || 0;
         const tr = document.createElement('tr')
         tr.innerHTML = `
           <td><small>${new Date(o.created_at).toLocaleString()}</small></td>
           <td>${o.customer_name}</td>
           <td>${o.items?.length || 0} items</td>
-          <td>${formatCurrency(o.total_amount)}</td>
+          <td>${formatCurrency(orderTotal)}</td>
           <td><span class="badge ${o.status === 'paid' ? 'badge-success' : 'badge-warning'}">${o.status.toUpperCase()}</span></td>
           <td>
             <button class="btn btn-outline btn-small view-order" data-id="${o.id}">Ver</button>
@@ -499,19 +546,24 @@ document.addEventListener('DOMContentLoaded', () => {
     const btnView = target.closest('.view-order')
     if (btnView) {
       const id = btnView.getAttribute('data-id')
-      console.log("DEBUG: Processing .view-order click. Fetching ID:", id);
       try {
-        console.log("DEBUG: Calling Supabase table 'orders'...");
         const { data: order, error } = await supabase.from('orders').select('*').eq('id', id).single()
 
         if (error) {
-          console.error("DEBUG: Supabase error observed:", error);
           throw error
         }
 
-        console.log("DEBUG: Data received successfully:", order);
         const items = order.items || []
-        const itemLines = items.map(i => `<li><strong>${i.name}</strong> x${i.quantity} - $${(i.total || 0).toFixed(2)}</li>`).join('')
+        // Support both Dashboard format (name, quantity, total) and PWA format (n, q, p)
+        const itemLines = items.map(i => {
+          const name = i.name || i.n || 'Artículo desconocido';
+          const qty = i.quantity || i.q || 1;
+          const price = i.price || i.p || 0;
+          const lineTotal = i.total || (price * qty) || 0;
+          return `<li style="margin-bottom: 0.5rem; border-bottom: 1px dotted #ccc; padding-bottom: 0.3rem;"><strong>${name}</strong> <br> <span style="font-size: 0.8rem; color: #555;">Cantidad: ${qty} | Subtotal: $${lineTotal.toFixed(2)}</span></li>`
+        }).join('')
+
+        const orderTotal = order.total_amount || order.total || 0;
 
         const content = `
           <div style="border-left: 4px solid #000; padding-left: 1rem; margin-bottom: 1.5rem;">
@@ -519,21 +571,130 @@ document.addEventListener('DOMContentLoaded', () => {
             <p><strong>Cédula:</strong> ${order.customer_doc || 'N/A'}</p>
             <p><strong>Teléfono:</strong> ${order.customer_phone || 'N/A'}</p>
             <p><strong>Fecha:</strong> ${new Date(order.created_at).toLocaleString()}</p>
+            <p><strong>Entrega:</strong> ${order.delivery_detail || 'No especificada'}</p>
+            <p><strong>Pago Ref:</strong> ${order.payment_method || 'No especificado'}</p>
             <p><strong>Estado:</strong> <span class="badge ${order.status === 'paid' ? 'badge-success' : 'badge-warning'}">${order.status?.toUpperCase()}</span></p>
           </div>
           <p><strong>Artículos:</strong></p>
-          <ul style="margin-top: 0.5rem; margin-bottom: 1.5rem; padding-left: 1.2rem;">${itemLines}</ul>
+          <ul style="margin-top: 0.5rem; margin-bottom: 1.5rem; padding-left: 0; list-style-type: none;">${itemLines}</ul>
           <div style="text-align: right; border-top: 1px solid #EEE; padding-top: 1rem;">
-            <p style="font-size: 1.2rem; font-weight: 800;">TOTAL: $${(order.total_amount || order.total || 0).toFixed(2)}</p>
+            <p style="font-size: 1.2rem; font-weight: 800;">TOTAL: $${orderTotal.toFixed(2)}</p>
             ${order.notes ? `<p style="font-size: 0.8rem; color: #666; margin-top: 0.5rem;"><em>${order.notes}</em></p>` : ''}
           </div>
+          ${order.status === 'pending' ? `
+          <div style="margin-top: 1.5rem; padding-top: 1rem; border-top: 1px solid #eee; text-align: center;">
+             <p style="font-size: 0.85rem; color: #666; margin-bottom: 1rem;">Para registrar opciones avanzadas (Moneda, Tasa BCV, Crédito), abre este pedido en la Caja.</p>
+             <button class="btn btn-primary process-pwa-order-btn" style="width: 100%; margin-bottom: 0.5rem;" data-id="${order.id}">🛒 Procesar en Caja (Nueva Venta)</button>
+             <button class="btn btn-danger reject-pwa-order-btn" style="width: 100%; margin-bottom: 0;" data-id="${order.id}">❌ Rechazar / Cancelar Pedido</button>
+          </div>` : ''}
         `;
-        console.log("DEBUG: Finalizing modal content. Opening modal...");
-        showCustomModal('Detalle de Venta', content)
+        showCustomModal(`Pedido: ${order.order_number || order.id.slice(0, 8)}`, content)
       } catch (err) {
-        console.error("DEBUG: Error block in btnView reached:", err);
         showToast('Error al cargar detalle: ' + err.message, 'error')
       }
+      return
+    }
+
+    // ----- Botón PROCESAR PWA Pedido -----
+    const btnProcessPWA = target.closest('.process-pwa-order-btn')
+    if (btnProcessPWA) {
+      const orderId = btnProcessPWA.getAttribute('data-id')
+      btnProcessPWA.disabled = true;
+
+      try {
+        const { data: order, error: orderErr } = await supabase.from('orders').select('*').eq('id', orderId).single()
+        if (orderErr) throw orderErr;
+
+        // Limpiar form de ventas y abrirlo
+        document.getElementById('custom-modal').classList.remove('custom-modal-active');
+        salesForm.reset();
+
+        // Asignar ID de PWA al form para saber que viene de allí
+        salesForm.setAttribute('data-pwa-order-id', orderId);
+
+        // Pre-llenar cliente
+        document.getElementById('sale-customer').value = order.customer_name || '';
+        document.getElementById('sale-customer-doc').value = order.customer_doc || '';
+        document.getElementById('sale-customer-phone').value = order.customer_phone || '';
+        document.getElementById('sale-notes').value = order.notes ? `PWA Order: ${order.notes}` : `PWA Order #${order.order_number || order.id.slice(0, 8)}`;
+
+        // Pre-llenar Items
+        if (salesItemsContainer) {
+          salesItemsContainer.innerHTML = '<label>Productos</label>'; // Reset
+          const items = order.items || [];
+
+          if (items.length === 0) {
+            addSalesItemRow();
+          } else {
+            items.forEach(item => {
+              const qty = item.quantity || item.q || 1;
+              const pId = item.id || item.productId || item.ID_SISTEMA;
+
+              const row = document.createElement('div')
+              row.className = 'sale-item-row'
+              row.style.display = 'flex'
+              row.style.gap = '0.5rem'
+              row.style.marginBottom = '0.5rem'
+
+              let options = '<option value="">Seleccionar producto...</option>'
+              allProducts.forEach(p => {
+                const selected = (p.id === pId) ? 'selected' : '';
+                options += `<option value="${p.id}" data-price="${p.price}" ${selected}>${p.name} ($${p.price})</option>`
+              })
+
+              row.innerHTML = `
+                  <select class="sale-product-select" style="flex: 2;" required>${options}</select>
+                  <input type="number" class="sale-quantity" placeholder="Cant" min="1" value="${qty}" style="flex: 1;" required>
+                  <button type="button" class="btn btn-outline btn-danger btn-small remove-item" style="width: auto;">&times;</button>
+                `
+              salesItemsContainer.appendChild(row)
+
+              row.querySelector('.remove-item').addEventListener('click', () => {
+                row.remove(); updateSalesTotal();
+              })
+              row.querySelector('.sale-product-select').addEventListener('change', updateSalesTotal)
+              row.querySelector('.sale-quantity').addEventListener('input', updateSalesTotal)
+            });
+          }
+        }
+
+        // Actualizar total y abrir el modal
+        updateSalesTotal();
+        salesModal.style.display = 'flex';
+
+      } catch (err) {
+        console.error("Error al preparar venta:", err);
+        showToast('Error al preparar venta: ' + err.message, 'error');
+        if (document.body.contains(btnProcessPWA)) btnProcessPWA.disabled = false;
+      }
+      return
+    }
+
+    // ----- Botón RECHAZAR PWA Pedido -----
+    const btnRejectPWA = target.closest('.reject-pwa-order-btn')
+    if (btnRejectPWA) {
+      const orderId = btnRejectPWA.getAttribute('data-id')
+
+      showCustomConfirm(
+        'Rechazar Pedido',
+        '¿Desea rechazar y cancelar este pedido permanentemente? NO se descontará stock.',
+        async () => {
+          btnRejectPWA.disabled = true;
+          try {
+            const { error: updateErr } = await supabase.from('orders').update({ status: 'cancelled' }).eq('id', orderId);
+            if (updateErr) throw updateErr;
+
+            document.getElementById('custom-modal').style.display = 'none';
+            await loadOrdersTable();
+            showToast('Pedido cancelado', 'success');
+          } catch (err) {
+            console.error("Error al cancelar pedido:", err);
+            showToast('Error al cancelar: ' + err.message, 'error');
+          } finally {
+            if (document.body.contains(btnRejectPWA)) btnRejectPWA.disabled = false;
+          }
+        }
+      );
       return
     }
 
@@ -629,10 +790,18 @@ document.addEventListener('DOMContentLoaded', () => {
   // --- Lógica del Modal de Ventas ---
   if (btnNewOrder) btnNewOrder.addEventListener('click', () => {
     salesForm.reset()
+    salesForm.removeAttribute('data-pwa-order-id')
+
     if (salesItemsContainer) {
       salesItemsContainer.innerHTML = '<label>Productos</label>' // Reset
       addSalesItemRow() // Add first row
     }
+
+    const rateInput = document.getElementById('sale-rate');
+    if (rateInput && window.currentExchangeRate) {
+      rateInput.value = window.currentExchangeRate;
+    }
+
     salesModal.style.display = 'flex'
   })
 
@@ -659,7 +828,10 @@ document.addEventListener('DOMContentLoaded', () => {
     `
     salesItemsContainer.appendChild(row)
 
-    row.querySelector('.remove-item').addEventListener('click', () => row.remove())
+    row.querySelector('.remove-item').addEventListener('click', () => {
+      row.remove();
+      updateSalesTotal();
+    })
     row.querySelector('.sale-product-select').addEventListener('change', updateSalesTotal)
     row.querySelector('.sale-quantity').addEventListener('input', updateSalesTotal)
   }
@@ -719,14 +891,17 @@ document.addEventListener('DOMContentLoaded', () => {
           paymentStatus: document.getElementById('sale-status').value,
           dueDate: document.getElementById('sale-due-date').value,
           installments: parseInt(document.getElementById('credit-installments')?.value || 1),
-          paymentCycle: document.getElementById('credit-cycle')?.value || 'mensual'
+          paymentCycle: document.getElementById('credit-cycle')?.value || 'mensual',
+          pwaOrderId: salesForm.getAttribute('data-pwa-order-id') || null
         }
 
         const res = await registerSale(saleData)
         if (res.success) {
+          salesForm.removeAttribute('data-pwa-order-id');
           salesModal.style.display = 'none'
-          loadOrdersTable()
+          loadOrdersTable() // Refresh orders table in case PWA order was paid
           loadHomeData()
+          showToast('Venta registrada exitosamente', 'success')
         } else {
           salesError.textContent = res.error
         }

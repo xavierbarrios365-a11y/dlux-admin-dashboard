@@ -5,7 +5,7 @@ import { supabase } from './supabase.js'
  * @param {Object} saleData - { customer, items: [{ productId, quantity }], notes, userId, currency, exchangeRate, paymentMethod, paymentStatus, dueDate }
  */
 export async function registerSale(saleData) {
-    const { customer, customerDoc, customerPhone, items, notes, userId, currency, exchangeRate, paymentMethod, paymentStatus, dueDate, installments, paymentCycle } = saleData
+    const { customer, customerDoc, customerPhone, items, notes, userId, currency, exchangeRate, paymentMethod, paymentStatus, dueDate, installments, paymentCycle, pwaOrderId } = saleData
 
     try {
         // 1. Calculate total price and prepare order
@@ -36,25 +36,50 @@ export async function registerSale(saleData) {
             })
         }
 
-        // 2. Create the Order
-        const { data: order, error: oError } = await supabase
-            .from('orders') // Assuming 'orders' table exists from previous context
-            .insert([{
-                order_number: `ORD-${Date.now()}`,
-                customer_name: customer,
-                customer_doc: customerDoc, // Valor real introducido en la UI
-                customer_phone: customerPhone || null, // Valor opcional de la UI
-                total_amount: totalAmount,
-                total: totalAmount, // Salvavidas para la columna antigua
-                status: paymentStatus || 'paid', // Use paymentStatus for order status
-                items: processedItems,
-                notes: notes,
-                created_by: userId
-            }])
-            .select()
-            .single()
+        // 2. Create or Update the Order
+        let order;
+        if (pwaOrderId) {
+            const { data: updatedOrder, error: uError } = await supabase
+                .from('orders')
+                .update({
+                    customer_name: customer,
+                    customer_doc: customerDoc,
+                    customer_phone: customerPhone || null,
+                    total_amount: totalAmount,
+                    total: totalAmount, // param legacy
+                    status: paymentStatus || 'paid',
+                    items: processedItems,
+                    payment_method: paymentMethod,
+                    notes: notes
+                })
+                .eq('id', pwaOrderId)
+                .select()
+                .single();
 
-        if (oError) throw oError
+            if (uError) throw uError;
+            order = updatedOrder;
+        } else {
+            const { data: newOrder, error: oError } = await supabase
+                .from('orders')
+                .insert([{
+                    order_number: `ORD-${Date.now()}`,
+                    customer_name: customer,
+                    customer_doc: customerDoc,
+                    customer_phone: customerPhone || null,
+                    total_amount: totalAmount,
+                    total: totalAmount,
+                    status: paymentStatus || 'paid',
+                    items: processedItems,
+                    payment_method: paymentMethod,
+                    notes: notes,
+                    created_by: userId
+                }])
+                .select()
+                .single()
+
+            if (oError) throw oError;
+            order = newOrder;
+        }
 
         // 3. Update Inventory & create Transactions (Atomic-ish)
         for (const item of processedItems) {
