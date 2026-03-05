@@ -19,19 +19,31 @@
         <div id="mobile-overlay" class="mobile-overlay"></div>
         <!-- Login Section -->
         <div id="login-container">
-            <h2>D'Lux Boutique</h2>
-            <form id="login-form">
-                <div class="input-group">
-                    <label for="email">Email</label>
-                    <input type="email" id="email" required placeholder="admin@dlux.com">
+            <div class="login-box">
+                <div class="login-header">
+                    <h2>D'Lux Boutique</h2>
+                    <p>Panel de Administración V4</p>
                 </div>
-                <div class="input-group">
-                    <label for="password">Password</label>
-                    <input type="password" id="password" required placeholder="••••••••">
-                </div>
-                <button type="submit" class="btn">Login</button>
-                <div id="login-error" class="error-msg"></div>
-            </form>
+                <form id="login-form">
+                    <div class="input-group">
+                        <label for="email">Email</label>
+                        <input type="email" id="email" required placeholder="admin@dlux.com">
+                    </div>
+                    <div class="input-group">
+                        <label for="password">Contraseña</label>
+                        <input type="password" id="password" required placeholder="••••••••">
+                    </div>
+                    <div class="login-options"
+                        style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 1.5rem;">
+                        <input type="checkbox" id="remember-me" style="width: auto; margin: 0;">
+                        <label for="remember-me" style="margin: 0; font-size: 0.85rem; cursor: pointer;">Recordar
+                            sesión</label>
+                    </div>
+                    <button type="submit" class="btn btn-login" style="width: 100%;">Entrar al Sistema</button>
+                    <div id="login-error" class="error-msg"
+                        style="color: var(--danger); margin-top: 1rem; font-size: 0.85rem; text-align: center;"></div>
+                </form>
+            </div>
         </div>
 
         <!-- Dashboard Section (Hidden by default) -->
@@ -547,7 +559,7 @@
 
         <!-- Exit/Withdrawal Modal -->
         <div id="exit-modal" class="modal" style="display: none;">
-            <div class="modal-content" style="width: 450px;">
+            <div class="modal-content">
                 <div class="modal-header">
                     <h3>Registrar Salida / Retiro de Mercancía</h3>
                     <button id="close-exit-modal"
@@ -592,7 +604,7 @@
 
     <!-- Expense Modal -->
     <div id="expense-modal" class="modal" style="display: none;">
-        <div class="modal-content" style="width: 400px;">
+        <div class="modal-content">
             <div class="modal-header">
                 <h3>Registrar Gasto / Egreso</h3>
                 <button id="close-expense-modal"
@@ -637,7 +649,7 @@
 
     <!-- Edit Transaction Modal -->
     <div id="edit-trans-modal" class="modal" style="display: none;">
-        <div class="modal-content" style="width: 450px;">
+        <div class="modal-content">
             <div class="modal-header">
                 <h3>Editar Movimiento</h3>
                 <button id="close-edit-trans-modal"
@@ -676,7 +688,7 @@
 
     <!-- Abono Modal -->
     <div id="abono-modal" class="modal" style="display: none;">
-        <div class="modal-content" style="width: 400px;">
+        <div class="modal-content">
             <div class="modal-header">
                 <h3>Registrar Abono</h3>
                 <button id="close-abono-modal"
@@ -716,7 +728,7 @@
 
     <!-- Payroll Modal -->
     <div id="payroll-modal" class="modal" style="display: none;">
-        <div class="modal-content" style="width: 450px;">
+        <div class="modal-content">
             <div class="modal-header">
                 <h3>Registrar Pago de Nómina</h3>
                 <button id="close-payroll-modal"
@@ -775,7 +787,7 @@
 
     <!-- User Creation Modal -->
     <div id="user-modal" class="modal" style="display: none;">
-        <div class="modal-content" style="width: 400px;">
+        <div class="modal-content">
             <div class="modal-header">
                 <h3>Crear Nuevo Usuario</h3>
                 <button id="close-user-modal"

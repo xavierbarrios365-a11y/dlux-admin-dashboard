@@ -126,8 +126,11 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function showDashboard(user) {
-    if (loginContainer) loginContainer.style.display = 'none'
-    if (dashboardContainer) dashboardContainer.style.display = 'flex'
+    if (loginContainer) loginContainer.classList.add('hidden')
+    if (dashboardContainer) {
+      dashboardContainer.style.display = 'flex'
+      dashboardContainer.classList.remove('hidden')
+    }
     if (appContainer) {
       appContainer.style.alignItems = 'flex-start'
       appContainer.style.justifyContent = 'flex-start'
@@ -137,8 +140,8 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function showLogin() {
-    if (dashboardContainer) dashboardContainer.style.display = 'none'
-    if (loginContainer) loginContainer.style.display = 'block'
+    if (dashboardContainer) dashboardContainer.classList.add('hidden')
+    if (loginContainer) loginContainer.classList.remove('hidden')
     if (appContainer) {
       appContainer.style.alignItems = 'center'
       appContainer.style.justifyContent = 'center'
@@ -151,13 +154,23 @@ document.addEventListener('DOMContentLoaded', () => {
       e.preventDefault()
       const email = document.getElementById('email').value
       const password = document.getElementById('password').value
+      const rememberMe = document.getElementById('remember-me')?.checked
       const btn = loginForm.querySelector('button')
       const originalText = btn.textContent
       btn.textContent = 'Iniciando sesión...'
       btn.disabled = true
       try {
         const { error } = await supabase.auth.signInWithPassword({ email, password })
-        if (error) loginError.textContent = error.message
+        if (error) {
+          loginError.textContent = error.message
+        } else {
+          // Persistence logic
+          if (rememberMe) {
+            localStorage.setItem('dlux_remembered_email', email)
+          } else {
+            localStorage.removeItem('dlux_remembered_email')
+          }
+        }
       } catch (err) {
         loginError.textContent = 'Error de conexión'
       } finally {
@@ -165,6 +178,15 @@ document.addEventListener('DOMContentLoaded', () => {
         btn.disabled = false
       }
     })
+  }
+
+  // Auto-fill remembered email
+  const rememberedEmail = localStorage.getItem('dlux_remembered_email')
+  if (rememberedEmail) {
+    const emailField = document.getElementById('email')
+    if (emailField) emailField.value = rememberedEmail
+    const rememberCheckbox = document.getElementById('remember-me')
+    if (rememberCheckbox) rememberCheckbox.checked = true
   }
 
   // --- Utilidades de UI (Custom Modals & Toasts) ---
