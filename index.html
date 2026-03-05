@@ -705,9 +705,33 @@
                     <p id="abono-remaining-amount" style="color: var(--danger); font-weight: bold; font-size: 1.2rem;">
                     </p>
                 </div>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem;">
+                    <div class="input-group">
+                        <label for="abono-currency">Moneda de Pago</label>
+                        <select id="abono-currency">
+                            <option value="USD" selected>Divisas ($)</option>
+                            <option value="BS">Bolívares (Bs.)</option>
+                        </select>
+                    </div>
+                    <div class="input-group" id="abono-rate-group" style="display: none;">
+                        <label for="abono-rate">Tasa de Cambio</label>
+                        <input type="number" id="abono-rate" step="0.01" placeholder="Ej: 36.50">
+                    </div>
+                </div>
+
                 <div class="input-group">
-                    <label for="abono-amount">Monto a Abonar ($)</label>
+                    <label>Cuota Sugerida (Auto-calculada)</label>
+                    <p id="abono-suggested-quota" style="font-weight: bold; color: var(--text-muted);"></p>
+                </div>
+
+                <div class="input-group">
+                    <label for="abono-amount">Monto a Abonar (en la moneda de pago)</label>
                     <input type="number" id="abono-amount" step="0.01" required placeholder="0.00">
+                </div>
+                <div class="input-group">
+                    <label id="abono-conversion-display"
+                        style="font-size: 0.85rem; color: var(--primary); font-weight: bold; margin-bottom: 0.5rem;"></label>
                 </div>
                 <div class="input-group">
                     <label for="abono-method">Método de Pago</label>

@@ -191,14 +191,7 @@ export async function registerExpense(expenseData) {
     return { success: true, data }
 }
 
-/**
- * Registra un abono a un crédito existente
- * @param {string} creditId - ID del crédito
- * @param {number} amount - Monto del abono
- * @param {string} paymentMethod - Método de pago
- * @param {string} userId - ID del usuario que registra
- */
-export async function registerPayment(creditId, amount, paymentMethod, userId) {
+export async function registerPayment(creditId, amountUSD, paymentMethod, userId, currency = 'USD', exchangeRate = 1.0, originalAmount = amountUSD) {
     try {
         // 1. Obtener datos del crédito
         const { data: credit, error: cError } = await supabase
@@ -209,7 +202,7 @@ export async function registerPayment(creditId, amount, paymentMethod, userId) {
 
         if (cError || !credit) throw new Error("Crédito no encontrado");
 
-        const newRemaining = credit.remaining_amount - amount;
+        const newRemaining = credit.remaining_amount - amountUSD;
         const newStatus = newRemaining <= 0 ? 'paid' : credit.status;
 
         // 2. Actualizar el crédito
@@ -228,7 +221,10 @@ export async function registerPayment(creditId, amount, paymentMethod, userId) {
             type: 'ingreso',
             category: 'abono',
             concept: `Abono de ${credit.customer_name}`,
-            amount: parseFloat(amount),
+            amount: parseFloat(amountUSD),
+            currency: currency,
+            exchange_rate: exchangeRate,
+            amount_bs: (currency === 'USD' && exchangeRate) ? (amountUSD * exchangeRate) : (currency === 'BS' ? originalAmount : null),
             payment_method: paymentMethod,
             created_by: userId,
             order_id: credit.order_id

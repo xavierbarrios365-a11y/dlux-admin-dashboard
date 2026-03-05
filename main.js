@@ -493,7 +493,11 @@ document.addEventListener('DOMContentLoaded', () => {
           <td>${o.customer_name}</td>
           <td>${o.items?.length || 0} items</td>
           <td>${formatCurrency(orderTotal)}</td>
-          <td><span class="badge ${o.status === 'paid' ? 'badge-success' : 'badge-warning'}">${o.status.toUpperCase()}</span></td>
+          <td><span class="badge ${o.status === 'paid' ? 'badge-success' : (o.status === 'cancelled' ? 'badge-danger' : 'badge-warning')}">${o.status === 'paid' ? 'PAGADO' :
+            (o.status === 'pending' ? 'CRÉDITO' :
+              (o.status === 'partial' ? 'APARTADO' :
+                (o.status === 'cancelled' ? 'CANCELADO' : o.status.toUpperCase())))
+          }</span></td>
           <td>
             <button class="btn btn-outline btn-small view-order" data-id="${o.id}">Ver</button>
             <button class="btn btn-outline btn-danger btn-small delete-order" data-id="${o.id}">Eliminar</button>
@@ -656,6 +660,12 @@ document.addEventListener('DOMContentLoaded', () => {
               row.querySelector('.sale-quantity').addEventListener('input', updateSalesTotal)
             });
           }
+        }
+
+        // Auto-fill exchange rate
+        const rateInput = document.getElementById('sale-rate');
+        if (rateInput && window.currentExchangeRate) {
+          rateInput.value = window.currentExchangeRate.toFixed(2);
         }
 
         // Actualizar total y abrir el modal
@@ -845,8 +855,20 @@ document.addEventListener('DOMContentLoaded', () => {
       total += price * qty
     })
     document.getElementById('sale-total-display').textContent = `Total: $${total.toFixed(2)}`
-    const rate = document.getElementById('sale-rate').value || 36
+
+    // Parse comma or dot correctly, and fallback to the global API rate instead of hardcoded 36
+    let rateStr = document.getElementById('sale-rate').value || '';
+    rateStr = rateStr.replace(',', '.');
+    const rate = parseFloat(rateStr) || window.currentExchangeRate || 1;
+
     document.getElementById('sale-total-bs-display').textContent = `(Bs. ${(total * rate).toFixed(2)})`
+  }
+
+  // Ensure total recalculates when user manually edits the exchange rate
+  const saleRateInput = document.getElementById('sale-rate');
+  if (saleRateInput) {
+    saleRateInput.addEventListener('input', updateSalesTotal);
+    saleRateInput.addEventListener('change', updateSalesTotal);
   }
 
   const saleCustomerInput = document.getElementById('sale-customer')
@@ -950,7 +972,9 @@ document.addEventListener('DOMContentLoaded', () => {
           <td>${formatCurrency(c.total_amount)}</td>
           <td style="color: var(--danger); font-weight:700;">${formatCurrency(c.remaining_amount)}</td>
           <td>${c.due_date || 'N/A'}</td>
-          <td><span class="badge ${statusBadge}">${c.status.toUpperCase()}</span></td>
+          <td><span class="badge ${statusBadge}">${c.status === 'paid' ? 'PAGADO (Liquidado)' :
+            (c.status === 'overdue' ? 'VENCIDO' : 'POR COBRAR')
+          }</span></td>
           <td><button class="btn btn-outline btn-small abonar-btn" data-id="${c.id}">Abonar</button></td>
         `
         creditsTbody.appendChild(tr)
@@ -969,32 +993,109 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
+  let currentAbonoCredit = null;
+
+  function updateAbonoConversion() {
+    if (!currentAbonoCredit) return;
+    const amountStr = document.getElementById('abono-amount').value.replace(',', '.') || '0';
+    const amount = parseFloat(amountStr);
+    let rateStr = document.getElementById('abono-rate').value || '';
+    rateStr = rateStr.replace(',', '.');
+    const rate = parseFloat(rateStr) || window.currentExchangeRate || 1;
+    const currency = document.getElementById('abono-currency').value;
+
+    const display = document.getElementById('abono-conversion-display');
+    if (currency === 'BS') {
+      const usdEquivalent = amount / rate;
+      display.textContent = `Equivale a: $${usdEquivalent.toFixed(2)} USD (Restará esto de la deuda)`;
+    } else {
+      const bsEquivalent = amount * rate;
+      display.textContent = `Equivale a: Bs ${bsEquivalent.toFixed(2)}`;
+    }
+  }
+
   function openAbonoModal(credit) {
     if (abonoForm) abonoForm.reset()
+    currentAbonoCredit = credit;
     document.getElementById('abono-credit-id').value = credit.id
     document.getElementById('abono-customer-name').textContent = credit.customer_name
     document.getElementById('abono-remaining-amount').innerHTML = formatCurrency(credit.remaining_amount)
+
+    // Auto-calculating quota
+    const installments = credit.installments || 1;
+    const suggestedQuota = credit.total_amount / installments;
+    const quotaDisplay = document.getElementById('abono-suggested-quota');
+    if (quotaDisplay) {
+      if (credit.remaining_amount < suggestedQuota) {
+        quotaDisplay.innerHTML = `Pago final (Deuda restante): ${formatCurrency(credit.remaining_amount)}`;
+      } else {
+        quotaDisplay.innerHTML = `${formatCurrency(suggestedQuota)} (basado en ${installments} cuotas)`;
+      }
+    }
+
+    const rateInput = document.getElementById('abono-rate');
+    if (rateInput && window.currentExchangeRate) {
+      rateInput.value = window.currentExchangeRate.toFixed(2);
+    }
+
+    updateAbonoConversion();
+
     if (abonoModal) abonoModal.style.display = 'flex'
   }
 
-  if (closeAbonoModalBtn) closeAbonoModalBtn.addEventListener('click', () => abonoModal.style.display = 'none')
+  // Bind conversion listeners
+  const abonoAmountInput = document.getElementById('abono-amount');
+  const abonoRateInput = document.getElementById('abono-rate');
+  const abonoCurrencySelect = document.getElementById('abono-currency');
+
+  if (abonoAmountInput) {
+    abonoAmountInput.addEventListener('input', updateAbonoConversion);
+  }
+  if (abonoRateInput) {
+    abonoRateInput.addEventListener('input', updateAbonoConversion);
+  }
+  if (abonoCurrencySelect) {
+    abonoCurrencySelect.addEventListener('change', (e) => {
+      document.getElementById('abono-rate-group').style.display = e.target.value === 'BS' ? 'block' : 'none';
+      updateAbonoConversion();
+    });
+  }
+
+  if (closeAbonoModalBtn) closeAbonoModalBtn.addEventListener('click', () => { abonoModal.style.display = 'none'; currentAbonoCredit = null; })
 
   if (abonoForm) {
     abonoForm.addEventListener('submit', async (e) => {
       e.preventDefault()
       abonoError.textContent = ''
+
+      const btn = document.getElementById('save-abono-btn')
+      if (btn) btn.disabled = true;
+
       const id = document.getElementById('abono-credit-id').value
-      const amount = document.getElementById('abono-amount').value
+      const amount = parseFloat(document.getElementById('abono-amount').value.replace(',', '.'))
       const method = document.getElementById('abono-method').value
+      const currency = document.getElementById('abono-currency').value
+      const rateStr = document.getElementById('abono-rate').value.replace(',', '.')
+      const rate = parseFloat(rateStr) || window.currentExchangeRate || 1;
 
-      const { data: { user } } = await supabase.auth.getUser()
-      const res = await registerPayment(id, amount, method, user.id)
+      // If paying in BS, the actual USD amount to deduct is amount / rate
+      const amountUSD = currency === 'BS' ? (amount / rate) : amount;
 
-      if (res.success) {
-        abonoModal.style.display = 'none'
-        loadCreditsTable()
-      } else {
-        abonoError.textContent = res.error
+      try {
+        const { data: { user } } = await supabase.auth.getUser()
+        // Pass currency and rate so they can be registered in the transaction
+        const res = await registerPayment(id, amountUSD, method, user.id, currency, rate, amount)
+
+        if (res.success) {
+          abonoModal.style.display = 'none'
+          loadCreditsTable()
+        } else {
+          abonoError.textContent = res.error
+        }
+      } catch (err) {
+        abonoError.textContent = 'Error: ' + err.message;
+      } finally {
+        if (btn) btn.disabled = false;
       }
     })
   }
@@ -1363,23 +1464,27 @@ document.addEventListener('DOMContentLoaded', () => {
     forceDownloadPDF(doc, `salida_${productName}.pdf`)
   }
 
-  // --- Tasa de Cambio DolarAPI ---
+  // --- Tasa de Cambio ---
   async function syncExchangeRate() {
     const btnSync = document.getElementById('btn-sync-rate')
     const rateInput = document.getElementById('sale-rate')
     if (btnSync) btnSync.style.opacity = '0.5'
     try {
-      // Usar tasa Paralelo (USDT/Monitor) según requerimiento del usuario
-      const response = await fetch('https://ve.dolarapi.com/v1/dolares/paralelo')
+      const response = await fetch('https://ve.dolarapi.com/v1/dolares')
       const data = await response.json()
-      if (data && data.promedio) {
-        window.currentExchangeRate = parseFloat(data.promedio);
-        rateInput.value = data.promedio.toFixed(2)
-        rateInput.dispatchEvent(new Event('change'))
+      if (data && Array.isArray(data)) {
+        const binance = data.find(m => m.fuente === 'binance' || (m.nombre || '').toLowerCase().includes('binance') || m.fuente === 'paralelo');
+        if (binance && binance.promedio) {
+          window.currentExchangeRate = parseFloat(binance.promedio);
+          if (rateInput) {
+            rateInput.value = binance.promedio.toFixed(2)
+            rateInput.dispatchEvent(new Event('change'))
+          }
+        }
       }
     } catch (e) {
       console.error("Error al sincronizar tasa:", e)
-      alert("No se pudo obtener la tasa USDT en tiempo real.")
+      alert("No se pudo obtener la tasa en tiempo real.")
     } finally {
       if (btnSync) btnSync.style.opacity = '1'
     }
