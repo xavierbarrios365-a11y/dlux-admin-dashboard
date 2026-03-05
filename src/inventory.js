@@ -1,20 +1,30 @@
 import { supabase } from './supabase.js'
 
 export async function uploadImageToCloudinary(file) {
-    const cloudName = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME;
-    const apiKey = import.meta.env.VITE_CLOUDINARY_API_KEY;
-    const uploadPreset = 'ml_default'; // Standard Cloudinary preset if unsigned, but we are using signed below
+    const cloudName = import.meta.env.VITE_CLOUDINARY_CLOUD_NAME || 'dko8viuwt';
+    const apiKey = import.meta.env.VITE_CLOUDINARY_API_KEY || '232883889939721';
+    const apiSecret = import.meta.env.VITE_CLOUDINARY_API_SECRET || 'dDdTLpBdAIDmGPOWhILQXW3Lny8';
 
     const formData = new FormData();
     formData.append('file', file);
-    formData.append('upload_preset', 'ml_default'); // Using unsigned for simplicity in this specific staff tool if possible, or signed if required.
 
-    // For signed uploads (more secure):
-    // formData.append('api_key', apiKey);
-    // ... signature logic ...
+    if (apiSecret) {
+        // Subida firmada para evitar el error de "Upload preset not found"
+        const timestamp = Math.round((new Date).getTime() / 1000);
+        const signatureString = `timestamp=${timestamp}${apiSecret}`;
 
-    // Let's stick to a robust fetch for unsigned/preset-based for now to avoid SHA-1 complexity issues on client side if not needed.
-    // However, the user provided API keys, so let's try to use the same pattern but clearer.
+        const msgBuffer = new TextEncoder().encode(signatureString);
+        const hashBuffer = await crypto.subtle.digest('SHA-1', msgBuffer);
+        const hashArray = Array.from(new Uint8Array(hashBuffer));
+        const signature = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+
+        formData.append('api_key', apiKey);
+        formData.append('timestamp', timestamp);
+        formData.append('signature', signature);
+    } else {
+        // Fallback a unsigned
+        formData.append('upload_preset', 'ml_default');
+    }
 
     const response = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, {
         method: 'POST',
@@ -23,7 +33,8 @@ export async function uploadImageToCloudinary(file) {
 
     if (!response.ok) {
         const errData = await response.json();
-        throw new Error(errData.error?.message || 'Failed to upload image to Cloudinary');
+        console.error('Error de Cloudinary:', errData);
+        throw new Error(errData.error?.message || 'Falló la subida de imagen a Cloudinary');
     }
 
     const result = await response.json();
