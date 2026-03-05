@@ -55,6 +55,34 @@ body {
   text-transform: uppercase;
 }
 
+/* Mobile Base Elements */
+.mobile-menu-btn {
+  display: none;
+  background: none;
+  border: none;
+  font-size: 1.5rem;
+  cursor: pointer;
+  color: #1A202C;
+}
+
+.mobile-overlay {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 1000;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.mobile-overlay.active {
+  display: block;
+  opacity: 1;
+}
+
 /* Sidebar - Modern Solid */
 .sidebar {
   width: 260px;
@@ -559,5 +587,120 @@ h1 {
 
   to {
     opacity: 0;
+  }
+}
+
+/* --- MOBILE OPTIMIZATION --- */
+@media (max-width: 768px) {
+
+  /* Layout Changes */
+  #app {
+    flex-direction: column;
+  }
+
+  /* Header adjustments */
+  header {
+    padding: 0 1rem;
+  }
+
+  .mobile-menu-btn {
+    display: inline-block;
+  }
+
+  .user-profile {
+    display: none;
+  }
+
+  /* Off-canvas Sidebar */
+  .sidebar {
+    position: fixed;
+    top: 0;
+    left: -260px;
+    height: 100vh;
+    z-index: 2000;
+    transition: left 0.3s ease;
+    box-shadow: 2px 0 10px rgba(0, 0, 0, 0.5);
+  }
+
+  .sidebar.sidebar-open {
+    left: 0;
+  }
+
+  /* Main Content Area */
+  #main-content {
+    padding: 1rem;
+    overflow-x: hidden;
+  }
+
+  /* KPI Cards Stacking */
+  .kpi-grid {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+
+  /* Charts Container Stacking */
+  .card {
+    height: 250px !important;
+  }
+
+  .card>canvas {
+    max-height: 200px;
+  }
+
+  div[style*="grid-template-columns: 1fr 1fr"] {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* Scrollable Tables */
+  .table-container {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    width: 100%;
+  }
+
+  .data-table {
+    min-width: 600px;
+    /* Force minimum width to prevent column crushing */
+  }
+
+  .data-table th,
+  .data-table td {
+    white-space: nowrap;
+    padding: 0.75rem;
+  }
+
+  /* Mobile Modals */
+  .custom-modal-content {
+    width: 95%;
+    padding: 1.5rem;
+    max-height: 90vh;
+    overflow-y: auto;
+  }
+
+  .modal-content {
+    width: 95%;
+    padding: 1.5rem;
+  }
+
+  /* Form Elements Adjustments */
+  .form-group {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .form-group>div {
+    width: 100%;
+  }
+
+  .input-group input,
+  .input-group select {
+    font-size: 16px;
+    /* Prevents iOS Safari Zoom */
+  }
+
+  /* Login Form adjustments */
+  #login-container {
+    padding: 2rem 1.5rem;
+    width: 90%;
   }
 }

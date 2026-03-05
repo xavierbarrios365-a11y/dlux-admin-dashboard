@@ -59,6 +59,23 @@ document.addEventListener('DOMContentLoaded', () => {
   let allProducts = [] // Cache para filtros rápidos
   let knownCustomers = [] // Cache de clientes para autocompletado
 
+  // --- Dual Currency & Mobile State ---
+  window.currentExchangeRate = 1.0;
+
+  function formatCurrency(amountUSD, paymentMethod = null) {
+    const isBs = ['Bs', 'Pago Movil', 'Transferencia Bs', 'Efectivo Bs'].includes(paymentMethod);
+    const amountBs = (amountUSD * window.currentExchangeRate).toFixed(2);
+    const amountUSDFmt = amountUSD.toFixed(2);
+
+    if (isBs) {
+      return `Bs. ${amountBs} <small style="color:var(--text-muted)">($${amountUSDFmt})</small>`;
+    } else if (paymentMethod) {
+      return `$${amountUSDFmt}`;
+    } else {
+      return `$${amountUSDFmt} <span style="font-size:0.7em; color:var(--text-muted)">(Ref: Bs. ${amountBs})</span>`;
+    }
+  }
+
   // --- Inicialización y Sesión ---
   async function checkSession() {
     const { data: { session } } = await supabase.auth.getSession()
@@ -229,6 +246,12 @@ document.addEventListener('DOMContentLoaded', () => {
       const targetView = document.getElementById(`view-${target}`)
       if (targetView) targetView.style.display = 'block'
 
+      // Close mobile sidebar if open
+      const sidebar = document.querySelector('.sidebar')
+      const pOverlay = document.getElementById('mobile-overlay')
+      if (sidebar) sidebar.classList.remove('sidebar-open')
+      if (pOverlay) pOverlay.classList.remove('active')
+
       if (pageTitle) {
         const titles = {
           home: 'Dashboard',
@@ -373,7 +396,7 @@ document.addEventListener('DOMContentLoaded', () => {
           <td><small>${new Date(o.created_at).toLocaleString()}</small></td>
           <td>${o.customer_name}</td>
           <td>${o.items?.length || 0} items</td>
-          <td>$${o.total_amount.toFixed(2)}</td>
+          <td>${formatCurrency(o.total_amount)}</td>
           <td><span class="badge ${o.status === 'paid' ? 'badge-success' : 'badge-warning'}">${o.status.toUpperCase()}</span></td>
           <td>
             <button class="btn btn-outline btn-small view-order" data-id="${o.id}">Ver</button>
@@ -700,8 +723,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const statusBadge = c.status === 'overdue' ? 'badge-danger' : (c.status === 'paid' ? 'badge-success' : 'badge-warning')
         tr.innerHTML = `
           <td><strong>${c.customer_name}</strong></td>
-          <td>$${c.total_amount.toFixed(2)}</td>
-          <td style="color: var(--danger); font-weight:700;">$${c.remaining_amount.toFixed(2)}</td>
+          <td>${formatCurrency(c.total_amount)}</td>
+          <td style="color: var(--danger); font-weight:700;">${formatCurrency(c.remaining_amount)}</td>
           <td>${c.due_date || 'N/A'}</td>
           <td><span class="badge ${statusBadge}">${c.status.toUpperCase()}</span></td>
           <td><button class="btn btn-outline btn-small abonar-btn" data-id="${c.id}">Abonar</button></td>
@@ -726,7 +749,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (abonoForm) abonoForm.reset()
     document.getElementById('abono-credit-id').value = credit.id
     document.getElementById('abono-customer-name').textContent = credit.customer_name
-    document.getElementById('abono-remaining-amount').textContent = `$${credit.remaining_amount.toFixed(2)}`
+    document.getElementById('abono-remaining-amount').innerHTML = formatCurrency(credit.remaining_amount)
     if (abonoModal) abonoModal.style.display = 'flex'
   }
 
@@ -809,7 +832,7 @@ document.addEventListener('DOMContentLoaded', () => {
         tr.innerHTML = `
           <td><strong>${p.employee_name}</strong></td>
           <td><span class="badge" style="background:#edf2f7; color:#4a5568">${p.category || 'Nómina'}</span></td>
-          <td style="color:var(--danger); font-weight:600">-$${p.amount.toFixed(2)}</td>
+          <td style="color:var(--danger); font-weight:600">-${formatCurrency(p.amount, p.payment_method)}</td>
           <td>${new Date(p.payment_date).toLocaleDateString()}</td>
           <td>${p.payment_method}</td>
         `
@@ -955,7 +978,7 @@ document.addEventListener('DOMContentLoaded', () => {
           <td><span class="badge ${typeBadge}">${t.type.toUpperCase()}</span></td>
           <td><span class="badge badge-outline">${t.category}</span></td>
           <td><strong>${t.concept}</strong></td>
-          <td style="font-weight:700">$${t.amount.toFixed(2)}</td>
+          <td style="font-weight:700">${formatCurrency(t.amount, t.payment_method)}</td>
           <td><span class="badge badge-outline">${t.payment_method || 'N/A'}</span></td>
           <td><span class="badge ${t.payment_status === 'pending' ? 'badge-warning' : 'badge-success'}">${(t.payment_status || 'completed').toUpperCase()}</span></td>
         `
@@ -964,8 +987,8 @@ document.addEventListener('DOMContentLoaded', () => {
       const summary = await getFinancialSummary()
       const reportRev = document.getElementById('report-total-revenue')
       const reportProfit = document.getElementById('report-net-profit')
-      if (reportRev) reportRev.textContent = '$' + summary.totalRevenue.toFixed(2)
-      if (reportProfit) reportProfit.textContent = '$' + summary.netProfit.toFixed(2)
+      if (reportRev) reportRev.innerHTML = formatCurrency(summary.totalRevenue)
+      if (reportProfit) reportProfit.innerHTML = formatCurrency(summary.netProfit)
     } catch (e) {
       console.error(e)
     }
@@ -1021,13 +1044,13 @@ document.addEventListener('DOMContentLoaded', () => {
       const profitEl = document.getElementById('kpi-net-profit')
       const breakdownEl = document.getElementById('income-breakdown')
 
-      if (incomeEl) incomeEl.textContent = '$' + summary.totalRevenue.toFixed(2)
-      if (expensesEl) expensesEl.textContent = '$' + summary.totalExpenses.toFixed(2)
-      if (profitEl) profitEl.textContent = '$' + summary.netProfit.toFixed(2)
+      if (incomeEl) incomeEl.innerHTML = formatCurrency(summary.totalRevenue)
+      if (expensesEl) expensesEl.innerHTML = formatCurrency(summary.totalExpenses)
+      if (profitEl) profitEl.innerHTML = formatCurrency(summary.netProfit)
 
       if (breakdownEl && summary.breakdown) {
         breakdownEl.innerHTML = Object.entries(summary.breakdown)
-          .map(([method, amount]) => `<div>${method}: $${amount.toFixed(2)}</div>`)
+          .map(([method, amount]) => `<div>${method}: ${formatCurrency(amount, method)}</div>`)
           .join('')
       }
 
@@ -1177,6 +1200,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const response = await fetch('https://ve.dolarapi.com/v1/dolares/paralelo')
       const data = await response.json()
       if (data && data.promedio) {
+        window.currentExchangeRate = parseFloat(data.promedio);
         rateInput.value = data.promedio.toFixed(2)
         rateInput.dispatchEvent(new Event('change'))
       }
@@ -1206,7 +1230,7 @@ document.addEventListener('DOMContentLoaded', () => {
           <td><span class="badge ${t.type === 'ingreso' ? 'badge-success' : 'badge-danger'}">${t.type.toUpperCase()}</span></td>
           <td>${t.concept}</td>
           <td>${isExit ? `<strong>${t.exit_reason}</strong> / ${t.received_by}` : (t.payment_method || 'N/A')}</td>
-          <td>$${t.amount.toFixed(2)}</td>
+          <td>${formatCurrency(t.amount, t.payment_method)}</td>
           <td>
             <button class="btn btn-outline btn-small edit-trans" data-id="${t.id}" style="padding: 2px 8px; margin-right: 4px;" title="Editar">✏️</button>
             <button class="btn btn-outline btn-small btn-danger delete-trans" data-id="${t.id}" style="padding: 2px 8px;" title="Eliminar">&times;</button>
@@ -1657,6 +1681,23 @@ document.addEventListener('DOMContentLoaded', () => {
     } catch (e) {
       console.error(e)
     }
+  }
+
+  // --- Mobile Interactivity ---
+  const mobileMenuBtn = document.getElementById('mobile-menu-btn')
+  const mobileOverlay = document.getElementById('mobile-overlay')
+  const sidebarEl = document.querySelector('.sidebar')
+
+  if (mobileMenuBtn && mobileOverlay && sidebarEl) {
+    mobileMenuBtn.addEventListener('click', () => {
+      sidebarEl.classList.add('sidebar-open')
+      mobileOverlay.classList.add('active')
+    })
+
+    mobileOverlay.addEventListener('click', () => {
+      sidebarEl.classList.remove('sidebar-open')
+      mobileOverlay.classList.remove('active')
+    })
   }
 
   // Carga Inicial
