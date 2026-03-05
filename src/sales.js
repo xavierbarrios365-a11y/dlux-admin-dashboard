@@ -147,17 +147,24 @@ export async function fetchTransactions() {
 }
 
 export async function getFinancialSummary() {
-    const { data: all } = await supabase.from('transactions').select('type, amount, payment_method')
-    if (!all) return { totalRevenue: 0, totalExpenses: 0, netProfit: 0, breakdown: {} }
+    const { data: all } = await supabase.from('transactions').select('type, amount, currency, payment_method')
+    let revenueUsd = 0, revenueBs = 0, expenseUsd = 0, expenseBs = 0;
+
+    if (!all) return { totalRevenue: 0, totalExpenses: 0, netProfit: 0, breakdown: {}, revenueUsd: 0, revenueBs: 0, expenseUsd: 0, expenseBs: 0, profitUsd: 0, profitBs: 0 }
 
     const breakdown = {}
     const totals = all.reduce((acc, curr) => {
+        const amt = parseFloat(curr.amount) || 0;
+        const isBs = curr.currency === 'BS';
+
         if (curr.type === 'ingreso') {
-            acc.income += curr.amount
+            acc.income += amt
             const method = curr.payment_method || 'Otro'
-            breakdown[method] = (breakdown[method] || 0) + curr.amount
+            breakdown[method] = (breakdown[method] || 0) + amt
+            if (isBs) revenueBs += amt; else revenueUsd += amt;
         } else {
-            acc.expense += curr.amount
+            acc.expense += amt
+            if (isBs) expenseBs += amt; else expenseUsd += amt;
         }
         return acc
     }, { income: 0, expense: 0 })
@@ -166,6 +173,12 @@ export async function getFinancialSummary() {
         totalRevenue: totals.income,
         totalExpenses: totals.expense,
         netProfit: totals.income - totals.expense,
+        revenueUsd,
+        revenueBs,
+        expenseUsd,
+        expenseBs,
+        profitUsd: revenueUsd - expenseUsd,
+        profitBs: revenueBs - expenseBs,
         breakdown
     }
 }
@@ -215,6 +228,14 @@ export async function registerPayment(creditId, amountUSD, paymentMethod, userId
             .eq('id', creditId);
 
         if (uError) throw uError;
+
+        if (newRemaining <= 0 && credit.order_id) {
+            const { error: oError } = await supabase
+                .from('orders')
+                .update({ status: 'paid' })
+                .eq('id', credit.order_id);
+            if (oError) console.error("Error updating order status:", oError);
+        }
 
         // 3. Crear transacción de ingreso
         await supabase.from('transactions').insert([{

@@ -1310,22 +1310,40 @@ document.addEventListener('DOMContentLoaded', () => {
     try {
       allProducts = await fetchProducts()
       const kpiProducts = document.getElementById('kpi-products')
-      if (kpiProducts) kpiProducts.textContent = allProducts.length
+      if (kpiProducts) {
+        const totalValue = allProducts.reduce((sum, p) => sum + ((p.cost_price || 0) * (p.stock || 0)), 0);
+        kpiProducts.textContent = formatCurrency(totalValue);
+      }
 
       const summary = await getFinancialSummary()
       const incomeEl = document.getElementById('kpi-total-income')
       const expensesEl = document.getElementById('kpi-total-expenses')
       const profitEl = document.getElementById('kpi-net-profit')
       const breakdownEl = document.getElementById('income-breakdown')
+      const expensesBreakdownEl = document.getElementById('expenses-breakdown')
+      const profitBreakdownEl = document.getElementById('profit-breakdown')
 
       if (incomeEl) incomeEl.innerHTML = formatCurrency(summary.totalRevenue)
       if (expensesEl) expensesEl.innerHTML = formatCurrency(summary.totalExpenses)
       if (profitEl) profitEl.innerHTML = formatCurrency(summary.netProfit)
 
-      if (breakdownEl && summary.breakdown) {
-        breakdownEl.innerHTML = Object.entries(summary.breakdown)
-          .map(([method, amount]) => `<div>${method}: ${formatCurrency(amount, method)}</div>`)
-          .join('')
+      if (breakdownEl) {
+        breakdownEl.innerHTML = `
+          <div><strong>Divisas:</strong> ${formatCurrency(summary.revenueUsd)}</div>
+          <div><strong>Bolívares (Equiv $):</strong> ${formatCurrency(summary.revenueBs)}</div>
+        `
+      }
+      if (expensesBreakdownEl) {
+        expensesBreakdownEl.innerHTML = `
+          <div><strong>Divisas:</strong> ${formatCurrency(summary.expenseUsd)}</div>
+          <div><strong>Bolívares (Equiv $):</strong> ${formatCurrency(summary.expenseBs)}</div>
+        `
+      }
+      if (profitBreakdownEl) {
+        profitBreakdownEl.innerHTML = `
+          <div><strong>Divisas:</strong> ${formatCurrency(summary.profitUsd)}</div>
+          <div><strong>Bolívares (Equiv $):</strong> ${formatCurrency(summary.profitBs)}</div>
+        `
       }
 
       renderFinancialCharts()
@@ -1628,12 +1646,18 @@ document.addEventListener('DOMContentLoaded', () => {
     deleteProductBtn.onclick = async () => {
       const id = document.getElementById('prod-id').value
       if (id && confirm('¿Seguro que desea eliminar este producto?')) {
+        const originalText = deleteProductBtn.textContent
+        deleteProductBtn.disabled = true
+        deleteProductBtn.textContent = 'Eliminando...'
         try {
           await deleteProduct(id)
           productModal.style.display = 'none'
           loadProductsTable()
         } catch (err) {
           productError.textContent = err.message
+        } finally {
+          deleteProductBtn.disabled = false
+          deleteProductBtn.textContent = originalText
         }
       }
     }
