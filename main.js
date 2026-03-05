@@ -954,57 +954,6 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
 
-  if (productForm) {
-    productForm.addEventListener('submit', async (e) => {
-      e.preventDefault()
-      const btn = document.getElementById('save-product-btn')
-      btn.disabled = true
-      productError.textContent = ''
-
-      try {
-        const id = document.getElementById('prod-id').value
-        const productData = {
-          name: document.getElementById('prod-name').value,
-          sku: document.getElementById('prod-sku').value,
-          price: parseFloat(document.getElementById('prod-price').value),
-          cost_price: parseFloat(document.getElementById('prod-cost').value),
-          stock: parseInt(document.getElementById('prod-stock').value),
-          brand: document.getElementById('prod-brand').value,
-          color: document.getElementById('prod-color').value,
-          size: document.getElementById('prod-size').value,
-          gender: document.getElementById('prod-gender').value,
-          category: document.getElementById('prod-category').value,
-          description: document.getElementById('prod-desc').value,
-          status: document.getElementById('prod-status').value
-        }
-
-        const imageFiles = document.getElementById('prod-image').files
-        if (imageFiles.length > 0) {
-          const uploadedUrls = []
-          for (const file of imageFiles) {
-            const url = await uploadImageToCloudinary(file)
-            uploadedUrls.push(url)
-          }
-          productData.images = uploadedUrls
-        }
-
-        if (id) {
-          await updateProduct(id, productData)
-        } else {
-          await createProduct(productData)
-        }
-
-        productModal.style.display = 'none'
-        loadProductsTable()
-        loadHomeData()
-      } catch (err) {
-        productError.textContent = err.message
-      } finally {
-        btn.disabled = false
-      }
-    })
-  }
-
   // --- Lógica de Reportes ---
   async function loadReportsTable() {
     const reportsTbody = document.getElementById('reports-tbody')
