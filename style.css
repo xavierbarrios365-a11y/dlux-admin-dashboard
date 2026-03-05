@@ -96,8 +96,8 @@ body {
   padding: 2rem 1rem;
   display: flex;
   flex-direction: column;
-  transition: none;
-  /* Disable transitions that cause jitter */
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  z-index: 2000;
 }
 
 .sidebar .logo {
@@ -107,15 +107,22 @@ body {
   padding: 0 1rem;
   letter-spacing: -0.025em;
   text-transform: uppercase;
+  flex-shrink: 0;
+}
+
+.sidebar nav {
+  flex-grow: 1;
+  overflow-y: auto;
 }
 
 .sidebar ul {
   list-style: none;
-  flex-grow: 1;
 }
 
 .sidebar a {
-  display: block;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
   padding: 0.75rem 1rem;
   color: #A0AEC0;
   text-decoration: none;
@@ -135,6 +142,11 @@ body {
 .sidebar a.active {
   background: #FFF;
   color: #000;
+}
+
+#logout-btn {
+  margin-top: auto;
+  width: 100%;
 }
 
 /* Content Area */
@@ -170,9 +182,9 @@ h1 {
 /* Main Working Area */
 #main-content {
   padding: 2rem;
-  overflow-y: scroll;
-  /* Forces scrollbar gutter to prevent jitter */
+  overflow-y: auto;
   flex: 1;
+  background: #F8FAFC;
 }
 
 /* KPI Cards */
@@ -593,14 +605,28 @@ h1 {
 /* --- MOBILE OPTIMIZATION --- */
 @media (max-width: 768px) {
 
-  /* Layout Changes */
-  #app {
-    flex-direction: column;
+  body,
+  html {
+    overflow-x: hidden;
+    height: auto;
+    min-height: 100vh;
   }
 
-  /* Header adjustments */
+  #app {
+    flex-direction: column;
+    height: auto;
+    min-height: 100vh;
+  }
+
+  /* Header Fixes - Sticky and Solid */
   header {
+    position: sticky;
+    top: 0;
     padding: 0 1rem;
+    z-index: 100;
+    background: #FFFFFF !important;
+    border-bottom: 2px solid var(--border-clean);
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
   }
 
   .mobile-menu-btn {
@@ -611,96 +637,122 @@ h1 {
     display: none;
   }
 
-  /* Off-canvas Sidebar */
+  /* Off-canvas Sidebar - Fixed and Opaque */
   .sidebar {
     position: fixed;
     top: 0;
-    left: -260px;
+    left: 0;
+    transform: translateX(-100%);
+    width: 280px;
     height: 100vh;
     z-index: 2000;
-    transition: left 0.3s ease;
-    box-shadow: 2px 0 10px rgba(0, 0, 0, 0.5);
+    background: var(--bg-side);
+    /* Black solid */
+    box-shadow: 5px 0 25px rgba(0, 0, 0, 0.5);
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   }
 
   .sidebar.sidebar-open {
-    left: 0;
+    transform: translateX(0);
   }
 
-  /* Main Content Area */
-  #main-content {
+  /* Navigation Scroll */
+  .sidebar nav {
+    overflow-y: auto;
+    padding-bottom: 1rem;
+  }
+
+  /* Logout button fixed at bottom of sidebar */
+  #logout-btn {
+    margin: auto 1rem 2rem 1rem;
+    width: calc(100% - 2rem);
     padding: 1rem;
-    overflow-x: hidden;
+    background: transparent;
+    border: 1px solid #FFF;
+    color: #FFF;
   }
 
-  /* KPI Cards Stacking */
+  /* Main Content Layout - No overlap */
+  .content {
+    height: auto;
+    min-height: calc(100vh - var(--header-height));
+    overflow: visible;
+    background: #F8FAFC;
+  }
+
+  #main-content {
+    padding: 1.5rem 1rem;
+    overflow-y: visible;
+  }
+
+  /* Dashboard Cards - Full Width */
   .kpi-grid {
     grid-template-columns: 1fr;
     gap: 1rem;
   }
 
-  /* Charts Container Stacking */
+  /* Charts - Stacked */
   .card {
-    height: 250px !important;
-  }
-
-  .card>canvas {
-    max-height: 200px;
+    height: auto !important;
+    min-height: 300px;
+    margin-bottom: 1.5rem;
   }
 
   div[style*="grid-template-columns: 1fr 1fr"] {
     grid-template-columns: 1fr !important;
+    gap: 1rem !important;
   }
 
-  /* Scrollable Tables */
+  /* Tables - Force Horizontal Scroll with min-width */
   .table-container {
+    margin: 0 -1rem 1.5rem -1rem;
+    border-radius: 0;
+    border-left: none;
+    border-right: none;
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
-    width: 100%;
+    background: #FFF;
   }
 
   .data-table {
-    min-width: 600px;
-    /* Force minimum width to prevent column crushing */
+    min-width: 800px;
+    /* Force minimum width to guarantee columns aren't crushed */
+    table-layout: auto;
+    /* Allow content to define width on mobile */
   }
 
   .data-table th,
   .data-table td {
+    padding: 1rem 0.75rem;
     white-space: nowrap;
-    padding: 0.75rem;
+    word-wrap: normal;
   }
 
-  /* Mobile Modals */
+  /* Modals Optimization - Mobile Centering */
   .custom-modal-content {
     width: 95%;
+    max-width: 95%;
     padding: 1.5rem;
+    margin: 1rem;
     max-height: 90vh;
     overflow-y: auto;
   }
 
-  .modal-content {
-    width: 95%;
-    padding: 1.5rem;
+  .custom-modal-footer {
+    flex-direction: column-reverse;
+    gap: 0.75rem;
   }
 
-  /* Form Elements Adjustments */
-  .form-group {
-    flex-direction: column;
-    gap: 0.5rem;
-  }
-
-  .form-group>div {
+  .custom-modal-footer button {
     width: 100%;
+    margin: 0 !important;
   }
 
+  /* Forms adjustments */
   .input-group input,
   .input-group select {
     font-size: 16px;
-    /* Prevents iOS Safari Zoom */
-  }
-
-  /* Login Form adjustments */
-  #login-container {
-    padding: 2rem 1.5rem;
-    width: 90%;
+    /* Prevents Safari Zoom */
+    padding: 0.75rem;
   }
 }
